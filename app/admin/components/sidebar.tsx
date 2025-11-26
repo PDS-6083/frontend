@@ -30,7 +30,7 @@ export default function Sidebar() {
         <span>Profile</span>
         </button>
        <button
-            onClick={() => router.push("/admin")}
+            onClick={() => router.push("/admin/dashboard")}
                 className="flex items-center space-x-3 hover:bg-gray-800 py-2 px-3 rounded-md">
             <FaTachometerAlt />
             <span>Dashboard</span>
@@ -38,7 +38,7 @@ export default function Sidebar() {
 
 
         <button
-          onClick={() => router.push("/admin/create-route")}
+          onClick={() => router.push("/admin/route")}
           className="flex items-center space-x-3 hover:bg-gray-800 py-2 px-3 rounded-md"
         >
           <FaRoute />

@@ -1,9 +1,9 @@
 "use client";
 
-import Sidebar from "./components/sidebar";
-import PopularRoutesCard from "./components/PopularRoutesCard";
-import FlightsStatCard from "./components/FlightsStatCard";
-import OldAircraftsCard from "./components/OldAircraftsCard";
+import Sidebar from "../components/sidebar";
+import PopularRoutesCard from "../components/PopularRoutesCard";
+import FlightsStatCard from "../components/FlightsStatCard";
+import OldAircraftsCard from "../components/OldAircraftsCard";
 
 export default function AdminDashboard() {
   return (
