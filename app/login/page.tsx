@@ -24,7 +24,7 @@ export default function LoginPage() {
       router.push("/crew");
       break;
     case "scheduler":
-      router.push("/scheduler");
+      router.push("/scheduler/profile");
       break;
     case "engineer":
       router.push("/engineer");
