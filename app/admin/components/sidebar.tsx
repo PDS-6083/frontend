@@ -46,7 +46,7 @@ export default function Sidebar() {
         </button>
 
         <button
-          onClick={() => router.push("/admin/add-aircraft")}
+          onClick={() => router.push("/admin/aircrafts")}
           className="flex items-center space-x-3 hover:bg-gray-800 py-2 px-3 rounded-md"
         >
           <FaPlane />
