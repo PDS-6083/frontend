@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import SchedulerSidebar from "../components/sidebar";
+import SchedulerSidebar from "@/app/components/sidebars/SchedulerSidebar";
 
 export default function AssignCrewPage() {
   const [flight, setFlight] = useState("");
@@ -17,7 +17,6 @@ export default function AssignCrewPage() {
   const [dutyHours, setDutyHours] = useState("");
   const [remarks, setRemarks] = useState("");
 
-  // Auto-copy dates if "same as departure date" is checked
   const handleSameDateToggle = () => {
     setSameDate(!sameDate);
     if (!sameDate) {
@@ -41,9 +40,6 @@ export default function AssignCrewPage() {
     };
 
     console.log("Crew Assignment Saved:", crewAssignment);
-
-    // Later: backend API call
-    // axios.post("/api/scheduler/assign-crew", crewAssignment)
   };
 
   return (
@@ -51,16 +47,13 @@ export default function AssignCrewPage() {
       <SchedulerSidebar />
 
       <div className="flex-1 bg-gray-100 p-10">
-        {/* TITLE */}
         <h1 className="text-3xl font-bold text-black">Assign Crew</h1>
         <p className="text-gray-600 mb-10">
           Please fill the following form to assign crew to a flight.
         </p>
 
-        {/* FORM GRID */}
         <div className="grid grid-cols-2 gap-10 max-w-4xl">
 
-          {/* Flight */}
           <div>
             <label className="block text-sm font-semibold text-black">Flight</label>
             <input
@@ -72,7 +65,6 @@ export default function AssignCrewPage() {
             />
           </div>
 
-          {/* Departure Date */}
           <div>
             <label className="block text-sm font-semibold text-black">Departure Date</label>
             <input
@@ -83,32 +75,28 @@ export default function AssignCrewPage() {
             />
           </div>
 
-          {/* Departure Time */}
           <div>
             <label className="block text-sm font-semibold text-black">Departure Time</label>
             <input
               type="time"
               value={departureTime}
               onChange={(e) => setDepartureTime(e.target.value)}
-              placeholder="09:00"
               className="w-full p-2 mt-2 border rounded-md bg-white text-black"
             />
           </div>
 
-          {/* Arrival Date */}
           <div>
             <label className="block text-sm font-semibold text-black">Arrival Date</label>
             <input
               type="date"
               value={arrivalDate}
-              onChange={(e) => setArrivalDate(e.target.value)}
               disabled={sameDate}
+              onChange={(e) => setArrivalDate(e.target.value)}
               className={`w-full p-2 mt-2 border rounded-md bg-white text-black ${
                 sameDate ? "opacity-50 cursor-not-allowed" : ""
               }`}
             />
 
-            {/* Checkbox */}
             <div className="flex items-center mt-2 space-x-2">
               <input
                 type="checkbox"
@@ -122,7 +110,6 @@ export default function AssignCrewPage() {
             </div>
           </div>
 
-          {/* Pilots */}
           <div>
             <label className="block text-sm font-semibold text-black">Pilots</label>
             <input
@@ -134,7 +121,6 @@ export default function AssignCrewPage() {
             />
           </div>
 
-          {/* Co-Pilot */}
           <div>
             <label className="block text-sm font-semibold text-black">Co-Pilot</label>
             <input
@@ -146,7 +132,6 @@ export default function AssignCrewPage() {
             />
           </div>
 
-          {/* Additional Cockpit Crew */}
           <div>
             <label className="block text-sm font-semibold text-black">
               Additional Cockpit Crew
@@ -160,7 +145,6 @@ export default function AssignCrewPage() {
             />
           </div>
 
-          {/* Cabin Crew */}
           <div>
             <label className="block text-sm font-semibold text-black">Cabin Crew</label>
             <input
@@ -172,19 +156,16 @@ export default function AssignCrewPage() {
             />
           </div>
 
-          {/* Arrival Time */}
           <div>
             <label className="block text-sm font-semibold text-black">Arrival Time</label>
             <input
               type="time"
               value={arrivalTime}
               onChange={(e) => setArrivalTime(e.target.value)}
-              placeholder="15:35"
               className="w-full p-2 mt-2 border rounded-md bg-white text-black"
             />
           </div>
 
-          {/* Flight Duty Hours */}
           <div>
             <label className="block text-sm font-semibold text-black">Flight Duty Hours</label>
             <input
@@ -194,16 +175,13 @@ export default function AssignCrewPage() {
               placeholder="6 hours 35 min"
               className="w-full p-2 mt-2 border rounded-md bg-white text-black"
             />
-            <a
-              href="#"
-              className="text-xs text-blue-600 underline mt-1 inline-block"
-            >
+            <a href="#" className="text-xs text-blue-600 underline mt-1 inline-block">
               Click here to validate FAA duty hour requirements.
             </a>
           </div>
+
         </div>
 
-        {/* BUTTONS */}
         <div className="flex mt-10 space-x-5">
           <button
             onClick={handleSave}
@@ -216,6 +194,7 @@ export default function AssignCrewPage() {
             CANCEL
           </button>
         </div>
+
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Sidebar from "../components/sidebar";
+import AdminSidebar from "@/app/components/sidebars/AdminSidebar";
 
 export default function AddAircraftPage() {
   const [registration, setRegistration] = useState("");
@@ -38,7 +38,7 @@ export default function AddAircraftPage() {
   return (
     <div className="flex min-h-screen">
       {/* Sidebar */}
-      <Sidebar />
+      <AdminSidebar/>
 
       {/* Main */}
       <div className="flex-1 bg-gray-100 p-10">

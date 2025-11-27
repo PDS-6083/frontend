@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import Sidebar from "../components/sidebar";
+import AdminSidebar from "@/app/components/sidebars/AdminSidebar";
+
 
 export default function CreateRoutePage() {
   const [source, setSource] = useState("");
@@ -38,7 +39,7 @@ export default function CreateRoutePage() {
   return (
     <div className="flex min-h-screen">
       {/* Sidebar */}
-      <Sidebar />
+      <AdminSidebar/>
 
       {/* Main content */}
       <div className="flex-1 bg-gray-100 p-10">

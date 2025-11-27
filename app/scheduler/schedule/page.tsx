@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import SchedulerSidebar from "../components/sidebar";
+import SchedulerSidebar from "@/app/components/sidebars/SchedulerSidebar";
 
 export default function ScheduleFlightPage() {
   // form states
@@ -29,9 +29,6 @@ export default function ScheduleFlightPage() {
     };
 
     console.log("Scheduled Flight:", flightData);
-
-    // TODO backend integration:
-    // axios.post("/api/scheduler/add-flight", flightData)
   };
 
   return (
@@ -82,7 +79,6 @@ export default function ScheduleFlightPage() {
               value={departureTime}
               onChange={(e) => setDepartureTime(e.target.value)}
               className="w-full p-2 mt-2 border rounded-md bg-white text-black"
-              placeholder="09:00"
             />
           </div>
 
@@ -94,7 +90,6 @@ export default function ScheduleFlightPage() {
               value={arrivalTime}
               onChange={(e) => setArrivalTime(e.target.value)}
               className="w-full p-2 mt-2 border rounded-md bg-white text-black"
-              placeholder="15:35"
             />
           </div>
 

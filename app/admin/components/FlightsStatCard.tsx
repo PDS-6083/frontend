@@ -1,5 +1,5 @@
 interface Props {
-  count: number;
+  count: number | string;
   label: string;
 }
 
