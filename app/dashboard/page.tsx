@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 
 import AdminDashboard from "../components/dashboards/AdminDashboard";
 import SchedulerDashboard from "../components/dashboards/SchedulerDashboard";
+import CrewDashboard from "../components/dashboards/CrewDashboard";
+import EngineerDashboard from "../components/dashboards/EngineerDashboard";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -12,35 +14,38 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function loadUser() {
-      try {
-        const res = await fetch("http://localhost:8000/api/auth/me", {
-          method: "GET",
-          credentials: "include",     // ⬅ IMPORTANT: sends `auth_token` cookie
-        });
+  function loadUser() {
+    if (typeof window === "undefined") return;
 
-        if (!res.ok) {
-          router.push("/login");
-          return;
-        }
-
-        const data = await res.json();
-        setRole(data.user_type);
-        setLoading(false);
-      } catch (error) {
-        router.push("/login");
-      }
+    const stored = localStorage.getItem("aerosync_user");
+    if (!stored) {
+      // no user info → go back to login
+      router.push("/login");
+      return;
     }
 
-    loadUser();
-  }, []);
+    try {
+      const user = JSON.parse(stored);
+      setRole(user.user_type); // "admin" | "crew" | "scheduler" | "engineer"
+    } catch {
+      router.push("/login");
+      return;
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  loadUser();
+}, [router]);
 
   if (loading) return <p>Loading dashboard...</p>;
 
   return (
-    <>
-      {role === "admin" && <AdminDashboard />}
-      {role === "scheduler" && <SchedulerDashboard />}
-    </>
-  );
+  <>
+    {role === "admin" && <AdminDashboard />}
+    {role === "scheduler" && <SchedulerDashboard />}
+    {role === "crew" && <CrewDashboard />}
+    {role === "engineer" && <EngineerDashboard />}
+  </>
+);
 }
