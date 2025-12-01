@@ -1,54 +1,104 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import AdminSidebar from "@/app/components/sidebars/AdminSidebar";
-
+import useRoleGuard from "@/app/hooks/useRoleGuard";
 
 export default function CreateRoutePage() {
+  useRoleGuard(["admin"]);
   const [source, setSource] = useState("");
   const [destination, setDestination] = useState("");
   const [capacity, setCapacity] = useState("");
-  const [routeType, setRouteType] = useState("Domestic");
   const [remarks, setRemarks] = useState("");
 
-  const airports = [
-    { code: "IAD", name: "Washington" },
-    { code: "LGA", name: "New York" },
-    { code: "DXB", name: "Dubai" },
-    { code: "JFK", name: "New York" },
-    { code: "ORD", name: "Chicago" },
-    { code: "LAX", name: "Los Angeles" },
-    { code: "DFW", name: "Dallas" },
-  ];
+  // List of airports from backend
+  const [airports, setAirports] = useState<
+    { code: string; name: string }[]
+  >([]);
 
-  const handleSave = () => {
-    const routeData = {
-      source,
-      destination,
-      capacity,
-      routeType,
-      remarks,
-    };
+  // Load airports from backend
+  useEffect(() => {
+    async function loadAirports() {
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/admin/airport`,
+          { credentials: "include" }
+        );
 
-    console.log("Route Data:", routeData);
+        if (res.ok) {
+          const data = await res.json();
+          setAirports(
+            data.map((a: any) => ({
+              code: a.airport_code,
+              name: a.airport_name,
+            }))
+          );
+        }
+      } catch (error) {
+        console.error("Failed to load airports:", error);
+      }
+    }
 
-    // Later: send to backend
-    // axios.post("/api/route", routeData);
+    loadAirports();
+  }, []);
+
+  // Save Route
+  const handleSave = async () => {
+    if (!source || !destination || !capacity) {
+      alert("Please fill all required fields");
+      return;
+    }
+
+    if (source === destination) {
+      alert("Source and Destination cannot be the same");
+      return;
+    }
+
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/admin/route`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            source_airport_code: source,
+            destination_airport_code: destination,
+            approved_capacity: Number(capacity),
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.detail || "Failed to create route");
+        return;
+      }
+
+      alert("Route created successfully!");
+      setSource("");
+      setDestination("");
+      setCapacity("");
+      setRemarks("");
+    } catch (error) {
+      console.error("Route creation failed:", error);
+      alert("Network error");
+    }
   };
 
   return (
     <div className="flex min-h-screen">
-      {/* Sidebar */}
-      <AdminSidebar/>
+      <AdminSidebar />
 
-      {/* Main content */}
       <div className="flex-1 bg-gray-100 p-10">
         <h1 className="text-3xl font-bold text-black">Create Route</h1>
         <p className="text-gray-600 mb-10">
           Please select source airport and destination from the dropdown.
         </p>
 
-        {/* Form Section */}
+        {/* FORM */}
         <div className="grid grid-cols-2 gap-10 max-w-4xl">
 
           {/* Source Airport */}
@@ -62,15 +112,12 @@ export default function CreateRoutePage() {
               className="w-full p-2 mt-2 border rounded-md bg-white text-black"
             >
               <option value="">Select Source</option>
-              {airports.map((a, idx) => (
-                <option key={idx} value={a.code}>
+              {airports.map((a) => (
+                <option key={a.code} value={a.code}>
                   {a.code} ({a.name})
                 </option>
               ))}
             </select>
-            {source && (
-              <p className="text-xs text-gray-500 mt-1">ICAO: K{source}</p>
-            )}
           </div>
 
           {/* Destination Airport */}
@@ -84,15 +131,12 @@ export default function CreateRoutePage() {
               className="w-full p-2 mt-2 border rounded-md bg-white text-black"
             >
               <option value="">Select Destination</option>
-              {airports.map((a, idx) => (
-                <option key={idx} value={a.code}>
+              {airports.map((a) => (
+                <option key={a.code} value={a.code}>
                   {a.code} ({a.name})
                 </option>
               ))}
             </select>
-            {destination && (
-              <p className="text-xs text-gray-500 mt-1">ICAO: K{destination}</p>
-            )}
           </div>
 
           {/* Approved Capacity */}
@@ -102,26 +146,11 @@ export default function CreateRoutePage() {
             </label>
             <input
               type="number"
-              placeholder="Enter Appr. Capacity"
               value={capacity}
               onChange={(e) => setCapacity(e.target.value)}
               className="w-full p-2 mt-2 border rounded-md bg-white text-black"
+              placeholder="Enter Approved Capacity"
             />
-          </div>
-
-          {/* Route Type */}
-          <div>
-            <label className="block text-sm font-semibold text-black">
-              Route Type
-            </label>
-            <select
-              value={routeType}
-              onChange={(e) => setRouteType(e.target.value)}
-              className="w-full p-2 mt-2 border rounded-md bg-white text-black"
-            >
-              <option value="Domestic">Domestic</option>
-              <option value="International">International</option>
-            </select>
           </div>
 
           {/* Remarks */}
@@ -133,11 +162,12 @@ export default function CreateRoutePage() {
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
               className="w-full h-28 p-3 mt-2 border rounded-md bg-white text-black"
+              placeholder="Optional remarks"
             />
           </div>
         </div>
 
-        {/* Buttons */}
+        {/* BUTTONS */}
         <div className="flex mt-10 space-x-5">
           <button
             onClick={handleSave}
@@ -145,15 +175,13 @@ export default function CreateRoutePage() {
           >
             Save
           </button>
+
           <button
-  className="border border-gray-400 text-black px-8 py-2 rounded-md
-             hover:bg-gray-300 hover:border-gray-500
-             transition-all duration-200"
->
-  CANCEL
-</button>
-
-
+            className="border border-gray-400 text-black px-8 py-2 rounded-md hover:bg-gray-300"
+            onClick={() => window.location.reload()}
+          >
+            CANCEL
+          </button>
         </div>
       </div>
     </div>

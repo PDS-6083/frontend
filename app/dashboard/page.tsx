@@ -37,6 +37,32 @@ export default function DashboardPage() {
 
   loadUser();
 }, [router]);
+    async function loadUser() {
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/me`,
+          {
+            method: "GET",
+            credentials: "include",  // ensures cookie auth
+          }
+        );
+
+        if (!res.ok) {
+          router.push("/login");
+          return;
+        }
+
+        const data = await res.json();
+        setRole(data.user_type?.toLowerCase());
+        setLoading(false);
+      } catch (error) {
+        console.error("Auth error:", error);
+        router.push("/login");
+      }
+    }
+
+    loadUser();
+  }, [router]);
 
   if (loading) return <p>Loading dashboard...</p>;
 

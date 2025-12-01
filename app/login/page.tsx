@@ -3,36 +3,49 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-
-
 export default function LoginPage() {
-    const router = useRouter();
+  const router = useRouter();
   const [role, setRole] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
-    //backend integration will be here
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log({ role, email, password });
 
-    switch (role) {
-    case "admin":
-        router.push("/admin/profile");   // redirect to profile FIRST
-    break;
-    case "crew":
-      router.push("/crew");
-      break;
-    case "scheduler":
-      router.push("/scheduler/profile");
-      break;
-    case "engineer":
-      router.push("/engineer");
-      break;
-    default:
-      break;
-  }
-};
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/login`, {
+        method: "POST",
+        credentials: "include", 
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          user_type: role,
+          email,
+          password,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.detail || "Login failed");
+        return;
+      }
+
+      const data = await res.json();
+      const userType = data.user.user_type;
+
+      // Redirect according to backend user_type
+      if (userType === "admin") router.push("/admin/profile");
+      if (userType === "scheduler") router.push("/scheduler/profile");
+      if (userType === "engineer") router.push("/engineer");
+      if (userType === "crew") router.push("/crew");
+
+    } catch (error) {
+      console.error("Login Error:", error);
+      alert("Network error");
+    }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#111] px-4">
@@ -44,7 +57,7 @@ export default function LoginPage() {
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-
+          
           {/* Role */}
           <div>
             <label className="block text-sm font-medium text-black mb-1">
@@ -55,8 +68,7 @@ export default function LoginPage() {
               onChange={(e) => setRole(e.target.value)}
               required
               className="w-full px-3 py-2 border border-gray-300 rounded-md 
-                         outline-none focus:ring-2 focus:ring-black
-                         text-black"
+                         outline-none focus:ring-2 focus:ring-black text-black"
             >
               <option value="">Select Role</option>
               <option value="admin">Admin</option>
@@ -79,7 +91,7 @@ export default function LoginPage() {
               required
               className="w-full px-3 py-2 border border-gray-300 rounded-md 
                          outline-none focus:ring-2 focus:ring-black
-                         text-black placeholder:text-gray-500"
+                         text-black"
             />
           </div>
 
@@ -96,13 +108,8 @@ export default function LoginPage() {
               required
               className="w-full px-3 py-2 border border-gray-300 rounded-md 
                          outline-none focus:ring-2 focus:ring-black
-                         text-black placeholder:text-gray-500"
+                         text-black"
             />
-            <div className="text-right mt-1">
-              <a className="text-xs text-blue-500 hover:underline cursor-pointer">
-                Forgot Password?
-              </a>
-            </div>
           </div>
 
           <button
