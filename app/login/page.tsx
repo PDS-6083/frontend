@@ -36,10 +36,12 @@ export default function LoginPage() {
       const userType = data.user.user_type;
 
       // Redirect according to backend user_type
-      if (userType === "admin") router.push("/admin/profile");
-      if (userType === "scheduler") router.push("/scheduler/profile");
-      if (userType === "engineer") router.push("/engineer");
-      if (userType === "crew") router.push("/crew");
+      //if (userType === "admin") router.push("/dashboard");
+      //if (userType === "scheduler") router.push("/dashboard");
+      //if (userType === "engineer") router.push("/dashboard");
+      //if (userType === "crew") router.push("/dashboard");
+
+       router.push("/dashboard");
 
     } catch (error) {
       console.error("Login Error:", error);
