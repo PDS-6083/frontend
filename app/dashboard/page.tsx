@@ -14,10 +14,13 @@ export default function DashboardPage() {
   useEffect(() => {
     async function loadUser() {
       try {
-        const res = await fetch("http://localhost:8000/api/auth/me", {
-          method: "GET",
-          credentials: "include",     // ⬅ IMPORTANT: sends `auth_token` cookie
-        });
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/me`,
+          {
+            method: "GET",
+            credentials: "include",  // ensures cookie auth
+          }
+        );
 
         if (!res.ok) {
           router.push("/login");
@@ -25,15 +28,16 @@ export default function DashboardPage() {
         }
 
         const data = await res.json();
-        setRole(data.user_type);
+        setRole(data.user_type?.toLowerCase());
         setLoading(false);
       } catch (error) {
+        console.error("Auth error:", error);
         router.push("/login");
       }
     }
 
     loadUser();
-  }, []);
+  }, [router]);
 
   if (loading) return <p>Loading dashboard...</p>;
 

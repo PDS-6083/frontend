@@ -1,34 +1,94 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import SchedulerSidebar from "@/app/components/sidebars/SchedulerSidebar";
 
 export default function ScheduleFlightPage() {
-  // form states
-  const [route, setRoute] = useState("");
+  const [routes, setRoutes] = useState<any[]>([]);
+  const [aircrafts, setAircrafts] = useState<any[]>([]);
+
+  const [routeId, setRouteId] = useState("");
   const [flightNumber, setFlightNumber] = useState("");
-  const [status, setStatus] = useState("");
   const [departureTime, setDepartureTime] = useState("");
   const [arrivalTime, setArrivalTime] = useState("");
   const [aircraft, setAircraft] = useState("");
-  const [seatConfig, setSeatConfig] = useState("");
   const [date, setDate] = useState("");
+
   const [remarks, setRemarks] = useState("");
 
-  const handleSave = () => {
+  // -------------------------------
+  // Fetch routes + aircrafts
+  // -------------------------------
+  useEffect(() => {
+    async function loadRoutes() {
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/scheduler/routes`,
+          { credentials: "include" }
+        );
+        if (res.ok) setRoutes(await res.json());
+      } catch (e) {
+        console.error("Failed to load routes:", e);
+      }
+    }
+
+    async function loadAircrafts() {
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/scheduler/aircrafts`,
+          { credentials: "include" }
+        );
+        if (res.ok) setAircrafts(await res.json());
+      } catch (e) {
+        console.error("Failed to load aircrafts:", e);
+      }
+    }
+
+    loadRoutes();
+    loadAircrafts();
+  }, []);
+
+  // -------------------------------
+  // SAVE FLIGHT (POST)
+  // -------------------------------
+  const handleSave = async () => {
+    if (!routeId || !flightNumber || !date || !departureTime || !arrivalTime || !aircraft) {
+      alert("Please fill all required fields!");
+      return;
+    }
+
     const flightData = {
-      route,
+      flight_number: flightNumber,
+      route_id: Number(routeId),
       date,
-      departureTime,
-      arrivalTime,
-      flightNumber,
-      aircraft,
-      status,
-      seatConfig,
-      remarks,
+      scheduled_departure_time: departureTime,
+      scheduled_arrival_time: arrivalTime,
+      aircraft_registration: aircraft,
     };
 
-    console.log("Scheduled Flight:", flightData);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/scheduler/flights`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(flightData),
+        }
+      );
+
+      if (res.ok) {
+        alert("Flight Scheduled Successfully!");
+      } else {
+        const err = await res.json();
+        alert(err.detail || "Failed to schedule flight.");
+      }
+    } catch (e) {
+      console.error("Error scheduling flight:", e);
+      alert("Network error");
+    }
   };
 
   return (
@@ -36,7 +96,6 @@ export default function ScheduleFlightPage() {
       <SchedulerSidebar />
 
       <div className="flex-1 bg-gray-100 p-10">
-        {/* TITLE */}
         <h1 className="text-3xl font-bold text-black">Schedule a Flight</h1>
         <p className="text-gray-600 mb-10">
           Please fill the following form to add a Flight to the system.
@@ -45,18 +104,20 @@ export default function ScheduleFlightPage() {
         {/* FORM */}
         <div className="grid grid-cols-2 gap-10 max-w-4xl">
 
-          {/* Route */}
+          {/* Route Dropdown */}
           <div>
             <label className="block text-sm font-semibold text-black">Route</label>
             <select
-              value={route}
-              onChange={(e) => setRoute(e.target.value)}
+              value={routeId}
+              onChange={(e) => setRouteId(e.target.value)}
               className="w-full p-2 mt-2 border rounded-md bg-white text-black"
             >
               <option value="">Select Route</option>
-              <option value="JFK-LAX">JFK → LAX</option>
-              <option value="IAD-DFW">IAD → DFW</option>
-              <option value="ORD-JFK">ORD → JFK</option>
+              {routes.map((r) => (
+                <option key={r.route_id} value={r.route_id}>
+                  {r.source_airport_code} → {r.destination_airport_code}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -105,45 +166,26 @@ export default function ScheduleFlightPage() {
             />
           </div>
 
-          {/* Aircraft */}
+          {/* Aircraft Dropdown */}
           <div>
             <label className="block text-sm font-semibold text-black">Aircraft</label>
-            <input
-              type="text"
+            <select
               value={aircraft}
               onChange={(e) => setAircraft(e.target.value)}
               className="w-full p-2 mt-2 border rounded-md bg-white text-black"
-              placeholder="N12011"
-            />
-          </div>
-
-          {/* Status */}
-          <div>
-            <label className="block text-sm font-semibold text-black">Status</label>
-            <input
-              type="text"
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              className="w-full p-2 mt-2 border rounded-md bg-white text-black"
-              placeholder="Scheduled"
-            />
-          </div>
-
-          {/* Seat/Cargo Config */}
-          <div>
-            <label className="block text-sm font-semibold text-black">Seat/Cargo Configuration</label>
-            <input
-              type="text"
-              value={seatConfig}
-              onChange={(e) => setSeatConfig(e.target.value)}
-              className="w-full p-2 mt-2 border rounded-md bg-white text-black"
-              placeholder="110 Econ. 7 Bus. 3 Fir."
-            />
+            >
+              <option value="">Select Aircraft</option>
+              {aircrafts.map((a) => (
+                <option key={a.registration_number} value={a.registration_number}>
+                  {a.registration_number} ({a.model})
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Remarks */}
           <div className="col-span-2">
-            <label className="block text-sm font-semibold text-black">Enter Remarks</label>
+            <label className="block text-sm font-semibold text-black">Remarks</label>
             <input
               type="text"
               value={remarks}

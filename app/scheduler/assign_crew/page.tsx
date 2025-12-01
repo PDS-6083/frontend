@@ -1,45 +1,105 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import SchedulerSidebar from "@/app/components/sidebars/SchedulerSidebar";
 
+interface CrewMember {
+  email_id: string;
+  name: string;
+  phone?: string;
+  is_pilot: boolean;
+}
+
+interface Flight {
+  flight_number: string;
+}
+
 export default function AssignCrewPage() {
-  const [flight, setFlight] = useState("");
-  const [departureTime, setDepartureTime] = useState("");
-  const [arrivalTime, setArrivalTime] = useState("");
-  const [departureDate, setDepartureDate] = useState("");
-  const [arrivalDate, setArrivalDate] = useState("");
-  const [sameDate, setSameDate] = useState(false);
+  const [flights, setFlights] = useState<Flight[]>([]);
+  const [crew, setCrew] = useState<CrewMember[]>([]);
+
+  const [selectedFlight, setSelectedFlight] = useState("");
   const [pilot, setPilot] = useState("");
   const [coPilot, setCoPilot] = useState("");
-  const [additionalCrew, setAdditionalCrew] = useState("");
-  const [cabinCrew, setCabinCrew] = useState("");
-  const [dutyHours, setDutyHours] = useState("");
+  const [cabinCrew, setCabinCrew] = useState<string[]>([]);
   const [remarks, setRemarks] = useState("");
 
-  const handleSameDateToggle = () => {
-    setSameDate(!sameDate);
-    if (!sameDate) {
-      setArrivalDate(departureDate);
-    }
-  };
+  // ---------------------------------------------------------------------------
+  // Load flights + crew list
+  // ---------------------------------------------------------------------------
 
-  const handleSave = () => {
-    const crewAssignment = {
-      flight,
-      departureTime,
-      departureDate,
-      arrivalTime,
-      arrivalDate,
+  useEffect(() => {
+    async function loadData() {
+      try {
+        // Fetch flights
+        const flightsRes = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/scheduler/flights`,
+          { credentials: "include" }
+        );
+        const flightsJson = await flightsRes.json();
+        setFlights(flightsJson);
+
+        // Fetch all crew members
+        const crewRes = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/scheduler/crew`,
+          { credentials: "include" }
+        );
+        const crewJson = await crewRes.json();
+        setCrew(crewJson);
+
+      } catch (err) {
+        console.error("Failed to load scheduler data:", err);
+      }
+    }
+
+    loadData();
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // Handle SAVE → Call backend assign crew
+  // ---------------------------------------------------------------------------
+
+  const handleSave = async () => {
+    if (!selectedFlight) {
+      alert("Please select a flight.");
+      return;
+    }
+    if (!pilot || !coPilot || cabinCrew.length === 0) {
+      alert("Please select pilot, co-pilot, and cabin crew.");
+      return;
+    }
+
+    const crewEmails = [
       pilot,
       coPilot,
-      additionalCrew,
-      cabinCrew,
-      dutyHours,
-      remarks,
-    };
+      ...cabinCrew
+    ];
 
-    console.log("Crew Assignment Saved:", crewAssignment);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/scheduler/flights/${selectedFlight}/assign-crew`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ crew_emails: crewEmails }),
+        }
+      );
+
+      if (!res.ok) {
+        const error = await res.json();
+        alert(error.detail || "Crew assignment failed");
+        return;
+      }
+
+      alert("Crew assigned successfully!");
+
+    } catch (err) {
+      console.error("Assign crew error:", err);
+      alert("Network error");
+    }
   };
 
   return (
@@ -49,135 +109,102 @@ export default function AssignCrewPage() {
       <div className="flex-1 bg-gray-100 p-10">
         <h1 className="text-3xl font-bold text-black">Assign Crew</h1>
         <p className="text-gray-600 mb-10">
-          Please fill the following form to assign crew to a flight.
+          Assign pilots and cabin crew to a flight.
         </p>
 
         <div className="grid grid-cols-2 gap-10 max-w-4xl">
 
+          {/* FLIGHT */}
           <div>
             <label className="block text-sm font-semibold text-black">Flight</label>
-            <input
-              type="text"
-              value={flight}
-              onChange={(e) => setFlight(e.target.value)}
-              placeholder="UA220"
+            <select
+              value={selectedFlight}
+              onChange={(e) => setSelectedFlight(e.target.value)}
               className="w-full p-2 mt-2 border rounded-md bg-white text-black"
-            />
+            >
+              <option value="">Select Flight</option>
+              {flights.map((f) => (
+                <option key={f.flight_number} value={f.flight_number}>
+                  {f.flight_number}
+                </option>
+              ))}
+            </select>
           </div>
 
+          {/* PILOT */}
           <div>
-            <label className="block text-sm font-semibold text-black">Departure Date</label>
-            <input
-              type="date"
-              value={departureDate}
-              onChange={(e) => setDepartureDate(e.target.value)}
-              className="w-full p-2 mt-2 border rounded-md bg-white text-black"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-black">Departure Time</label>
-            <input
-              type="time"
-              value={departureTime}
-              onChange={(e) => setDepartureTime(e.target.value)}
-              className="w-full p-2 mt-2 border rounded-md bg-white text-black"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-black">Arrival Date</label>
-            <input
-              type="date"
-              value={arrivalDate}
-              disabled={sameDate}
-              onChange={(e) => setArrivalDate(e.target.value)}
-              className={`w-full p-2 mt-2 border rounded-md bg-white text-black ${
-                sameDate ? "opacity-50 cursor-not-allowed" : ""
-              }`}
-            />
-
-            <div className="flex items-center mt-2 space-x-2">
-              <input
-                type="checkbox"
-                checked={sameDate}
-                onChange={handleSameDateToggle}
-                className="w-4 h-4"
-              />
-              <label className="text-sm text-gray-600">
-                Arrival date same as departure date
-              </label>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-black">Pilots</label>
-            <input
-              type="text"
+            <label className="block text-sm font-semibold text-black">Pilot</label>
+            <select
               value={pilot}
               onChange={(e) => setPilot(e.target.value)}
-              placeholder="Pilot Name"
               className="w-full p-2 mt-2 border rounded-md bg-white text-black"
-            />
+            >
+              <option value="">Select Pilot</option>
+              {crew
+                .filter((c) => c.is_pilot)
+                .map((c) => (
+                  <option key={c.email_id} value={c.email_id}>
+                    {c.name} ({c.email_id})
+                  </option>
+                ))}
+            </select>
           </div>
 
+          {/* CO-PILOT */}
           <div>
             <label className="block text-sm font-semibold text-black">Co-Pilot</label>
-            <input
-              type="text"
+            <select
               value={coPilot}
               onChange={(e) => setCoPilot(e.target.value)}
-              placeholder="Co-Pilot Name"
               className="w-full p-2 mt-2 border rounded-md bg-white text-black"
-            />
+            >
+              <option value="">Select Co-Pilot</option>
+              {crew
+                .filter((c) => c.is_pilot)
+                .map((c) => (
+                  <option key={c.email_id} value={c.email_id}>
+                    {c.name} ({c.email_id})
+                  </option>
+                ))}
+            </select>
           </div>
 
-          <div>
-            <label className="block text-sm font-semibold text-black">
-              Additional Cockpit Crew
-            </label>
-            <input
-              type="text"
-              value={additionalCrew}
-              onChange={(e) => setAdditionalCrew(e.target.value)}
-              placeholder="Pilot/Co-Pilot Name"
-              className="w-full p-2 mt-2 border rounded-md bg-white text-black"
-            />
-          </div>
-
-          <div>
+          {/* CABIN CREW */}
+          <div className="col-span-2">
             <label className="block text-sm font-semibold text-black">Cabin Crew</label>
-            <input
-              type="text"
+
+            <select
+              multiple
               value={cabinCrew}
-              onChange={(e) => setCabinCrew(e.target.value)}
-              placeholder="Cabin Crew Names"
-              className="w-full p-2 mt-2 border rounded-md bg-white text-black"
-            />
+              onChange={(e) =>
+                setCabinCrew(
+                  Array.from(e.target.selectedOptions, (o) => o.value)
+                )
+              }
+              className="w-full p-2 mt-2 border rounded-md bg-white text-black h-32"
+            >
+              {crew
+                .filter((c) => !c.is_pilot)
+                .map((c) => (
+                  <option key={c.email_id} value={c.email_id}>
+                    {c.name} ({c.email_id})
+                  </option>
+                ))}
+            </select>
+
+            <p className="text-xs text-gray-500 mt-1">
+              Hold CTRL (Windows) or CMD (Mac) to select multiple cabin crew members.
+            </p>
           </div>
 
-          <div>
-            <label className="block text-sm font-semibold text-black">Arrival Time</label>
-            <input
-              type="time"
-              value={arrivalTime}
-              onChange={(e) => setArrivalTime(e.target.value)}
-              className="w-full p-2 mt-2 border rounded-md bg-white text-black"
+          {/* REMARKS */}
+          <div className="col-span-2">
+            <label className="block text-sm font-semibold text-black">Remarks</label>
+            <textarea
+              value={remarks}
+              onChange={(e) => setRemarks(e.target.value)}
+              className="w-full h-24 p-3 mt-2 border rounded-md bg-white text-black"
             />
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-black">Flight Duty Hours</label>
-            <input
-              type="text"
-              value={dutyHours}
-              onChange={(e) => setDutyHours(e.target.value)}
-              placeholder="6 hours 35 min"
-              className="w-full p-2 mt-2 border rounded-md bg-white text-black"
-            />
-            <a href="#" className="text-xs text-blue-600 underline mt-1 inline-block">
-              Click here to validate FAA duty hour requirements.
-            </a>
           </div>
 
         </div>
@@ -194,7 +221,6 @@ export default function AssignCrewPage() {
             CANCEL
           </button>
         </div>
-
       </div>
     </div>
   );
