@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import SchedulerSidebar from "@/app/components/sidebars/SchedulerSidebar";
+import useRoleGuard from "@/app/hooks/useRoleGuard";
 
 interface CrewMember {
   email_id: string;
@@ -15,6 +16,7 @@ interface Flight {
 }
 
 export default function AssignCrewPage() {
+  useRoleGuard(["scheduler"]);
   const [flights, setFlights] = useState<Flight[]>([]);
   const [crew, setCrew] = useState<CrewMember[]>([]);
 

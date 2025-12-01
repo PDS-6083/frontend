@@ -2,8 +2,12 @@
 
 import { useState } from "react";
 import AdminSidebar from "@/app/components/sidebars/AdminSidebar";
+import useRoleGuard from "@/app/hooks/useRoleGuard";
 
 export default function AddAircraftPage() {
+
+  useRoleGuard(["admin"]);
+
   const [registration, setRegistration] = useState("");
   const [model, setModel] = useState("");
   const [capacity, setCapacity] = useState("");

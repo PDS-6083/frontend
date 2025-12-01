@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import SchedulerSidebar from "@/app/components/sidebars/SchedulerSidebar";
+import useRoleGuard from "@/app/hooks/useRoleGuard";
 
 export default function ScheduleFlightPage() {
+  useRoleGuard(["scheduler"]);
   const [routes, setRoutes] = useState<any[]>([]);
   const [aircrafts, setAircrafts] = useState<any[]>([]);
 

@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import AdminSidebar from "@/app/components/sidebars/AdminSidebar";
+import useRoleGuard from "@/app/hooks/useRoleGuard";
 
 export default function CreateRoutePage() {
+  useRoleGuard(["admin"]);
   const [source, setSource] = useState("");
   const [destination, setDestination] = useState("");
   const [capacity, setCapacity] = useState("");
