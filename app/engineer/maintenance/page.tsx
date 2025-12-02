@@ -1,21 +1,21 @@
 "use client";
 
 import { useEffect, useState, FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import EngineerSidebar from "@/app/components/sidebars/EngineerSidebar";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
-// Match backend engineer/schemas.py
-
+// Types
 type MaintenanceType = "routine" | "inspection" | "repair" | "overhaul";
 
 type MaintenanceJobSummary = {
   job_id: number;
   aircraft_registration: string;
   role: string;
-  checkin_date: string; // ISO datetime
-  checkout_date: string | null; // ISO datetime or null
-  status: string; // pending / in_progress / completed / cancelled
+  checkin_date: string;
+  checkout_date: string | null;
+  status: string;
   type: MaintenanceType;
 };
 
@@ -29,7 +29,7 @@ type JobPartInfo = {
   part_number: string;
   part_manufacturer: string;
   model: string;
-  manufacturing_date: string; // date
+  manufacturing_date: string;
 };
 
 type MaintenanceJobDetail = {
@@ -56,7 +56,19 @@ type AssignEngineerForm = {
   role: string;
 };
 
+// From engineer dashboard backend
+type EngineerAircraft = {
+  registration_number: string;
+  status: string;
+};
+
+type EngineerDashboardResponse = {
+  aircrafts: EngineerAircraft[];
+};
+
 export default function EngineerMaintenancePage() {
+  const router = useRouter();
+
   const [jobs, setJobs] = useState<MaintenanceJobSummary[]>([]);
   const [jobsLoading, setJobsLoading] = useState(true);
   const [jobsError, setJobsError] = useState<string | null>(null);
@@ -73,18 +85,25 @@ export default function EngineerMaintenancePage() {
     type: "routine",
     remarks: "",
   });
-  const [creatingJob, setCreatingJob] = useState(false);
-  const [createJobError, setCreateJobError] = useState<string | null>(null);
 
   const [assignForm, setAssignForm] = useState<AssignEngineerForm>({
     email_id: "",
     role: "Engineer",
   });
+
+  const [creatingJob, setCreatingJob] = useState(false);
+  const [createJobError, setCreateJobError] = useState<string | null>(null);
+
   const [assigning, setAssigning] = useState(false);
   const [assignError, setAssignError] = useState<string | null>(null);
 
+  // NEW: aircraft list for dropdown
+  const [aircrafts, setAircrafts] = useState<EngineerAircraft[]>([]);
+  const [aircraftsLoading, setAircraftsLoading] = useState(true);
+  const [aircraftsError, setAircraftsError] = useState<string | null>(null);
+
   // ------------------------------
-  // Load list of jobs
+  // Load jobs
   // ------------------------------
   async function loadJobs() {
     setJobsLoading(true);
@@ -97,17 +116,16 @@ export default function EngineerMaintenancePage() {
 
       if (!res.ok) {
         if (res.status === 401 || res.status === 403) {
-          setJobsError("You are not authorized to view maintenance jobs.");
-        } else {
-          setJobsError(`Failed to load jobs (${res.status})`);
+          router.push("/403");
+          return;
         }
+        setJobsError(`Failed to load jobs (${res.status})`);
         return;
       }
 
       const data: MaintenanceJobSummary[] = await res.json();
       setJobs(data);
 
-      // Auto-select first job if none selected
       if (!selectedJobId && data.length > 0) {
         setSelectedJobId(data[0].job_id);
       }
@@ -119,8 +137,40 @@ export default function EngineerMaintenancePage() {
     }
   }
 
+  // ------------------------------
+  // Load aircrafts for dropdown
+  // ------------------------------
+  async function loadAircrafts() {
+    setAircraftsLoading(true);
+    setAircraftsError(null);
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/engineer/dashboard`, {
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          router.push("/403");
+          return;
+        }
+        setAircraftsError(`Failed to load aircrafts (${res.status})`);
+        return;
+      }
+
+      const data: EngineerDashboardResponse = await res.json();
+      setAircrafts(data.aircrafts || []);
+    } catch (err) {
+      console.error(err);
+      setAircraftsError("Unexpected error while loading aircrafts.");
+    } finally {
+      setAircraftsLoading(false);
+    }
+  }
+
   useEffect(() => {
     loadJobs();
+    loadAircrafts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -140,20 +190,19 @@ export default function EngineerMaintenancePage() {
       try {
         const res = await fetch(
           `${API_BASE_URL}/api/engineer/jobs/${jobId}`,
-          {
-            credentials: "include",
-          }
+          { credentials: "include" }
         );
 
         if (!res.ok) {
+          if (res.status === 401 || res.status === 403) {
+            router.push("/403");
+            return;
+          }
           if (res.status === 404) {
             setJobDetailError("Job not found.");
-          } else if (res.status === 401 || res.status === 403) {
-            setJobDetailError("You are not authorized to view this job.");
-          } else {
-            setJobDetailError(`Failed to load job detail (${res.status})`);
+            return;
           }
-          setSelectedJob(null);
+          setJobDetailError(`Failed to load job detail (${res.status})`);
           return;
         }
 
@@ -161,18 +210,17 @@ export default function EngineerMaintenancePage() {
         setSelectedJob(data);
       } catch (err) {
         console.error(err);
-        setJobDetailError("Unexpected error while loading job detail.");
-        setSelectedJob(null);
+        setJobDetailError("Unexpected error loading job detail.");
       } finally {
         setJobDetailLoading(false);
       }
     }
 
     loadJobDetail(selectedJobId);
-  }, [selectedJobId]);
+  }, [selectedJobId, router]);
 
   // ------------------------------
-  // Create new job
+  // Create job
   // ------------------------------
   async function handleCreateJob(e: FormEvent) {
     e.preventDefault();
@@ -187,43 +235,35 @@ export default function EngineerMaintenancePage() {
       };
 
       if (!payload.aircraft_registration) {
-        setCreateJobError("Aircraft registration is required.");
+        setCreateJobError("Please select an aircraft.");
         setCreatingJob(false);
         return;
       }
 
       const res = await fetch(`${API_BASE_URL}/api/engineer/jobs`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
-        if (res.status === 400) {
-          const body = await res.json().catch(() => null);
-          const detail =
-            (body && (body.detail || body.message)) ||
-            "Invalid data for creating job.";
-          setCreateJobError(detail);
-        } else if (res.status === 401 || res.status === 403) {
-          setCreateJobError("You are not authorized to create jobs.");
-        } else {
-          setCreateJobError(`Failed to create job (${res.status})`);
+        if (res.status === 401 || res.status === 403) {
+          router.push("/403");
+          return;
         }
+        const body = await res.json().catch(() => null);
+        setCreateJobError(
+          body?.detail || body?.message || `Failed to create job (${res.status})`
+        );
         return;
       }
 
       const created: MaintenanceJobDetail = await res.json();
-
-      // Refresh list and select the new job
       await loadJobs();
       setSelectedJobId(created.job_id);
       setSelectedJob(created);
 
-      // Reset form
       setNewJob({
         aircraft_registration: "",
         type: "routine",
@@ -238,7 +278,7 @@ export default function EngineerMaintenancePage() {
   }
 
   // ------------------------------
-  // Assign engineer to job
+  // Assign engineer
   // ------------------------------
   async function handleAssignEngineer(e: FormEvent) {
     e.preventDefault();
@@ -252,52 +292,38 @@ export default function EngineerMaintenancePage() {
         engineers: [
           {
             email_id: assignForm.email_id.trim(),
-            role: assignForm.role.trim() || "Engineer",
+            role: assignForm.role.trim(),
           },
         ],
       };
-
-      if (!payload.engineers[0].email_id) {
-        setAssignError("Engineer email is required.");
-        setAssigning(false);
-        return;
-      }
 
       const res = await fetch(
         `${API_BASE_URL}/api/engineer/jobs/${selectedJobId}/assign-engineers`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify(payload),
         }
       );
 
       if (!res.ok) {
-        if (res.status === 400) {
-          const body = await res.json().catch(() => null);
-          const detail =
-            (body && (body.detail || body.message)) ||
-            "Failed to assign engineer.";
-          setAssignError(detail);
-        } else if (res.status === 401 || res.status === 403) {
-          setAssignError("You are not authorized to assign engineers.");
-        } else {
-          setAssignError(`Failed to assign engineer (${res.status})`);
+        if (res.status === 401 || res.status === 403) {
+          router.push("/403");
+          return;
         }
+
+        const body = await res.json().catch(() => null);
+        setAssignError(
+          body?.detail || body?.message || "Failed to assign engineer."
+        );
         return;
       }
 
       const updated: MaintenanceJobDetail = await res.json();
       setSelectedJob(updated);
 
-      // Reset small form
-      setAssignForm({
-        email_id: "",
-        role: "Engineer",
-      });
+      setAssignForm({ email_id: "", role: "Engineer" });
     } catch (err) {
       console.error(err);
       setAssignError("Unexpected error while assigning engineer.");
@@ -307,349 +333,192 @@ export default function EngineerMaintenancePage() {
   }
 
   // ------------------------------
-  // NOTE on update/delete:
-  // Backend engineer routes do NOT expose PUT/DELETE for /jobs,
-  // so this page currently supports:
-  //  - list jobs
-  //  - view job detail
-  //  - create new job
-  //  - assign engineers to a job
-  // To update/delete jobs, backend endpoints must be added first.
+  // Render UI
   // ------------------------------
-
   return (
     <div className="flex min-h-screen bg-gray-100">
       <EngineerSidebar />
 
       <main className="flex-1 p-6 md:p-8">
-        {/* Header */}
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-gray-900">
-              Maintenance Jobs
-            </h1>
-            <p className="mt-1 text-sm text-gray-600">
-              View, create, and manage maintenance jobs assigned to you.
-            </p>
-          </div>
+        <div className="mb-6">
+          <h1 className="text-2xl font-semibold">Maintenance Jobs</h1>
+          <p className="text-sm text-gray-600">
+            Manage and assign maintenance jobs.
+          </p>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-3">
-          {/* Jobs list */}
-          <section className="lg:col-span-1 rounded-lg bg-white p-4 shadow-sm">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">
-                Jobs List
-              </h2>
+          {/* LEFT: Jobs List */}
+          <section className="bg-white rounded-lg p-4 shadow-sm">
+            <div className="flex justify-between items-center mb-3">
+              <h2 className="text-lg font-semibold">Jobs List</h2>
               <button
                 onClick={loadJobs}
-                className="text-xs font-medium text-blue-600 hover:underline"
+                className="text-xs text-blue-600 hover:underline"
               >
                 Refresh
               </button>
             </div>
 
-            {jobsLoading && (
-              <p className="text-sm text-gray-600">Loading jobs…</p>
-            )}
-
-            {!jobsLoading && jobsError && (
-              <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">
-                {jobsError}
-              </div>
-            )}
+            {jobsLoading && <p>Loading jobs…</p>}
+            {jobsError && <p className="text-red-600">{jobsError}</p>}
 
             {!jobsLoading && !jobsError && jobs.length === 0 && (
-              <p className="text-sm text-gray-500">
-                No maintenance jobs found.
-              </p>
+              <p>No jobs found.</p>
             )}
 
             {!jobsLoading && !jobsError && jobs.length > 0 && (
-              <ul className="divide-y divide-gray-200 max-h-[420px] overflow-y-auto">
-                {jobs.map((job) => {
-                  const isSelected = job.job_id === selectedJobId;
-                  return (
-                    <li
-                      key={job.job_id}
-                      className={`cursor-pointer px-3 py-2 text-sm ${
-                        isSelected
-                          ? "bg-blue-50 border-l-4 border-blue-600"
-                          : "hover:bg-gray-50"
-                      }`}
-                      onClick={() => setSelectedJobId(job.job_id)}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-gray-900">
-                          #{job.job_id} – {job.aircraft_registration}
-                        </span>
-                        <span className="text-xs uppercase text-gray-500">
-                          {job.status}
-                        </span>
-                      </div>
-                      <div className="mt-1 flex items-center justify-between text-xs text-gray-600">
-                        <span>{job.type}</span>
-                        <span>
-                          In:{" "}
-                          {new Date(job.checkin_date).toLocaleDateString()}
-                        </span>
-                      </div>
-                    </li>
-                  );
-                })}
+              <ul className="divide-y">
+                {jobs.map((job) => (
+                  <li
+                    key={job.job_id}
+                    className={`p-2 cursor-pointer ${
+                      selectedJobId === job.job_id
+                        ? "bg-blue-50"
+                        : "hover:bg-gray-50"
+                    }`}
+                    onClick={() => setSelectedJobId(job.job_id)}
+                  >
+                    <div className="font-semibold">
+                      #{job.job_id} — {job.aircraft_registration}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {job.type} ·{" "}
+                      {new Date(job.checkin_date).toLocaleDateString()}
+                    </div>
+                  </li>
+                ))}
               </ul>
             )}
           </section>
 
-          {/* Job detail + assign engineer */}
-          <section className="lg:col-span-2 rounded-lg bg-white p-4 shadow-sm">
-            <h2 className="mb-3 text-lg font-semibold text-gray-900">
-              Job Detail
-            </h2>
+          {/* RIGHT: Job Detail */}
+          <section className="lg:col-span-2 bg-white rounded-lg p-4 shadow-sm">
+            {!selectedJobId && <p>Select a job to view details.</p>}
 
-            {!selectedJobId && (
-              <p className="text-sm text-gray-500">
-                Select a job from the left to view its details.
-              </p>
+            {selectedJobId && jobDetailLoading && <p>Loading detail…</p>}
+            {jobDetailError && (
+              <p className="text-red-600">{jobDetailError}</p>
             )}
 
-            {selectedJobId && jobDetailLoading && (
-              <p className="text-sm text-gray-600">Loading job detail…</p>
-            )}
+            {selectedJob && (
+              <>
+                <h2 className="text-lg font-semibold mb-3">Job Detail</h2>
 
-            {selectedJobId && jobDetailError && (
-              <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">
-                {jobDetailError}
-              </div>
-            )}
-
-            {selectedJobId && !jobDetailLoading && !jobDetailError && selectedJob && (
-              <div className="space-y-4">
-                {/* Basic info */}
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>Job ID: #{selectedJob.job_id}</div>
+                  <div>Aircraft: {selectedJob.aircraft_registration}</div>
+                  <div>Type: {selectedJob.type}</div>
+                  <div>Status: {selectedJob.status}</div>
                   <div>
-                    <div className="text-xs font-medium text-gray-500">
-                      Job ID
-                    </div>
-                    <div className="text-sm text-gray-900">
-                      #{selectedJob.job_id}
-                    </div>
+                    Check-in:{" "}
+                    {new Date(selectedJob.checkin_date).toLocaleString()}
                   </div>
                   <div>
-                    <div className="text-xs font-medium text-gray-500">
-                      Aircraft
-                    </div>
-                    <div className="text-sm text-gray-900">
-                      {selectedJob.aircraft_registration}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs font-medium text-gray-500">
-                      Type
-                    </div>
-                    <div className="text-sm text-gray-900">
-                      {selectedJob.type}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs font-medium text-gray-500">
-                      Status
-                    </div>
-                    <div className="text-sm text-gray-900">
-                      {selectedJob.status}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs font-medium text-gray-500">
-                      Check-in
-                    </div>
-                    <div className="text-sm text-gray-900">
-                      {new Date(
-                        selectedJob.checkin_date
-                      ).toLocaleString()}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs font-medium text-gray-500">
-                      Check-out
-                    </div>
-                    <div className="text-sm text-gray-900">
-                      {selectedJob.checkout_date
-                        ? new Date(
-                            selectedJob.checkout_date
-                          ).toLocaleString()
-                        : "—"}
-                    </div>
+                    Check-out:{" "}
+                    {selectedJob.checkout_date
+                      ? new Date(
+                          selectedJob.checkout_date
+                        ).toLocaleString()
+                      : "—"}
                   </div>
                 </div>
 
                 {/* Remarks */}
-                <div>
-                  <div className="text-xs font-medium text-gray-500">
-                    Remarks
-                  </div>
-                  <div className="mt-1 text-sm text-gray-900">
-                    {selectedJob.remarks || "—"}
-                  </div>
+                <div className="mt-4">
+                  <strong>Remarks:</strong>{" "}
+                  {selectedJob.remarks || "—"}
                 </div>
 
                 {/* Engineers */}
-                <div>
-                  <div className="mb-1 text-xs font-medium text-gray-500">
-                    Assigned Engineers
-                  </div>
+                <div className="mt-4">
+                  <strong>Engineers Assigned:</strong>
                   {selectedJob.engineers.length === 0 ? (
                     <p className="text-sm text-gray-500">
-                      No engineers assigned yet.
+                      No engineers assigned.
                     </p>
                   ) : (
-                    <ul className="space-y-1 text-sm text-gray-900">
+                    <ul className="text-sm list-disc ml-4">
                       {selectedJob.engineers.map((eng) => (
                         <li key={eng.email_id}>
-                          <span className="font-medium">{eng.name}</span>{" "}
-                          <span className="text-gray-500">
-                            ({eng.role} – {eng.email_id})
-                          </span>
+                          {eng.name} ({eng.role}) — {eng.email_id}
                         </li>
                       ))}
                     </ul>
                   )}
                 </div>
 
-                {/* Parts */}
-                <div>
-                  <div className="mb-1 text-xs font-medium text-gray-500">
-                    Parts Used
-                  </div>
-                  {selectedJob.parts.length === 0 ? (
-                    <p className="text-sm text-gray-500">
-                      No parts recorded for this job.
-                    </p>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200 text-xs">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="px-2 py-1 text-left font-medium text-gray-500">
-                              Part #
-                            </th>
-                            <th className="px-2 py-1 text-left font-medium text-gray-500">
-                              Manufacturer
-                            </th>
-                            <th className="px-2 py-1 text-left font-medium text-gray-500">
-                              Model
-                            </th>
-                            <th className="px-2 py-1 text-left font-medium text-gray-500">
-                              Mfg Date
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200 bg-white">
-                          {selectedJob.parts.map((p) => (
-                            <tr key={p.part_number}>
-                              <td className="px-2 py-1">{p.part_number}</td>
-                              <td className="px-2 py-1">
-                                {p.part_manufacturer}
-                              </td>
-                              <td className="px-2 py-1">{p.model}</td>
-                              <td className="px-2 py-1">
-                                {new Date(
-                                  p.manufacturing_date
-                                ).toLocaleDateString()}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-
-                {/* Assign engineer form */}
-                <form
-                  onSubmit={handleAssignEngineer}
-                  className="mt-4 rounded-md border border-gray-200 p-3"
-                >
-                  <h3 className="mb-2 text-sm font-semibold text-gray-900">
-                    Assign Engineer to this Job
-                  </h3>
-
+                {/* Assign Engineer */}
+                <form onSubmit={handleAssignEngineer} className="mt-4">
                   {assignError && (
-                    <div className="mb-2 rounded-md bg-red-50 p-2 text-xs text-red-700">
-                      {assignError}
-                    </div>
+                    <p className="text-red-600 text-sm mb-2">{assignError}</p>
                   )}
 
-                  <div className="mb-2 grid gap-3 md:grid-cols-2">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700">
-                        Engineer Email
-                      </label>
-                      <input
-                        type="email"
-                        className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        value={assignForm.email_id}
-                        onChange={(e) =>
-                          setAssignForm((prev) => ({
-                            ...prev,
-                            email_id: e.target.value,
-                          }))
-                        }
-                        placeholder="engineer@example.com"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700">
-                        Role
-                      </label>
-                      <input
-                        type="text"
-                        className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        value={assignForm.role}
-                        onChange={(e) =>
-                          setAssignForm((prev) => ({
-                            ...prev,
-                            role: e.target.value,
-                          }))
-                        }
-                        placeholder="Engineer"
-                      />
-                    </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <input
+                      type="email"
+                      placeholder="Engineer email"
+                      value={assignForm.email_id}
+                      onChange={(e) =>
+                        setAssignForm((prev) => ({
+                          ...prev,
+                          email_id: e.target.value,
+                        }))
+                      }
+                      className="border px-2 py-1 rounded"
+                    />
+
+                    <input
+                      type="text"
+                      placeholder="Role"
+                      value={assignForm.role}
+                      onChange={(e) =>
+                        setAssignForm((prev) => ({
+                          ...prev,
+                          role: e.target.value,
+                        }))
+                      }
+                      className="border px-2 py-1 rounded"
+                    />
                   </div>
 
                   <button
                     type="submit"
                     disabled={assigning}
-                    className="mt-2 inline-flex items-center rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+                    className="mt-3 bg-blue-600 text-white px-4 py-2 rounded text-sm"
                   >
                     {assigning ? "Assigning…" : "Assign Engineer"}
                   </button>
                 </form>
-              </div>
+              </>
             )}
           </section>
         </div>
 
         {/* Create new job */}
-        <section className="mt-6 rounded-lg bg-white p-4 shadow-sm">
-          <h2 className="mb-3 text-lg font-semibold text-gray-900">
-            Create New Maintenance Job
-          </h2>
+        <section className="mt-6 bg-white rounded-lg p-4 shadow-sm">
+          <h2 className="text-lg font-semibold">Create New Job</h2>
 
           {createJobError && (
-            <div className="mb-3 rounded-md bg-red-50 p-3 text-sm text-red-700">
+            <div className="bg-red-50 border border-red-200 text-red-700 p-2 text-sm rounded mb-3">
               {createJobError}
             </div>
           )}
 
-          <form onSubmit={handleCreateJob} className="grid gap-4 md:grid-cols-3">
+          {/* Aircraft load errors (for dropdown) */}
+          {aircraftsError && (
+            <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-2 text-xs rounded mb-3">
+              {aircraftsError}
+            </div>
+          )}
+
+          <form onSubmit={handleCreateJob} className="grid grid-cols-3 gap-4">
+            {/* Aircraft dropdown */}
             <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Aircraft Registration
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Aircraft
               </label>
-              <input
-                type="text"
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+              <select
                 value={newJob.aircraft_registration}
                 onChange={(e) =>
                   setNewJob((prev) => ({
@@ -657,16 +526,30 @@ export default function EngineerMaintenancePage() {
                     aircraft_registration: e.target.value,
                   }))
                 }
-                placeholder="e.g., N123AB"
-              />
+                disabled={aircraftsLoading || aircrafts.length === 0}
+                className="border px-3 py-2 rounded w-full text-sm"
+              >
+                <option value="">
+                  {aircraftsLoading
+                    ? "Loading aircrafts…"
+                    : aircrafts.length === 0
+                    ? "No aircrafts available"
+                    : "Select an aircraft"}
+                </option>
+                {aircrafts.map((ac) => (
+                  <option key={ac.registration_number} value={ac.registration_number}>
+                    {ac.registration_number} ({ac.status})
+                  </option>
+                ))}
+              </select>
             </div>
 
+            {/* Type */}
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Type
               </label>
               <select
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
                 value={newJob.type}
                 onChange={(e) =>
                   setNewJob((prev) => ({
@@ -674,6 +557,7 @@ export default function EngineerMaintenancePage() {
                     type: e.target.value as MaintenanceType,
                   }))
                 }
+                className="border px-3 py-2 rounded w-full text-sm"
               >
                 <option value="routine">Routine</option>
                 <option value="inspection">Inspection</option>
@@ -682,13 +566,14 @@ export default function EngineerMaintenancePage() {
               </select>
             </div>
 
+            {/* Remarks */}
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Remarks (optional)
               </label>
               <input
                 type="text"
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                placeholder="Short notes for this job"
                 value={newJob.remarks}
                 onChange={(e) =>
                   setNewJob((prev) => ({
@@ -696,17 +581,17 @@ export default function EngineerMaintenancePage() {
                     remarks: e.target.value,
                   }))
                 }
-                placeholder="Short notes for this job"
+                className="border px-3 py-2 rounded w-full text-sm"
               />
             </div>
 
-            <div className="md:col-span-3">
+            <div className="col-span-3">
               <button
                 type="submit"
                 disabled={creatingJob}
-                className="inline-flex items-center rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-60"
+                className="bg-green-600 text-white px-4 py-2 rounded text-sm"
               >
-                {creatingJob ? "Creating…" : "Create Maintenance Job"}
+                {creatingJob ? "Creating…" : "Create Job"}
               </button>
             </div>
           </form>

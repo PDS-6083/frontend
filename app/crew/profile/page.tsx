@@ -29,7 +29,6 @@ export default function CrewProfile() {
           }
         );
 
-        // 🔐 Same behavior as admin/scheduler/engineer
         if (!res.ok) {
           if (res.status === 401 || res.status === 403) {
             router.push("/403");
