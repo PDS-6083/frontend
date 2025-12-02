@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { FaUser, FaTools, FaFileAlt } from "react-icons/fa";
+import LogoutButton from "./LogoutButton";
+import { FaUser, FaTools, FaClipboardList, FaFileAlt } from "react-icons/fa";
 
 export default function EngineerSidebar() {
   const router = useRouter();
@@ -47,6 +48,7 @@ export default function EngineerSidebar() {
           <FaFileAlt />
           <span>Maintenance Report</span>
         </button>
+        <LogoutButton />
       </nav>
     </div>
   );

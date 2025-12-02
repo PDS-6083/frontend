@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import LogoutButton from "./LogoutButton";
 import { FaUser, FaPlane } from "react-icons/fa";
 
 export default function CrewSidebar() {
@@ -19,6 +20,7 @@ export default function CrewSidebar() {
       </div>
 
       <nav className="flex flex-col space-y-4">
+        {/* Default page – profile */}
         <button
           onClick={() => router.push("/crew")}
           className="flex items-center gap-3 hover:bg-gray-800 py-2 px-3 rounded-md w-full text-left"
@@ -34,6 +36,9 @@ export default function CrewSidebar() {
           <FaPlane />
           <span>My Flights</span>
         </button>
+
+        {/* Logout button */}
+        <LogoutButton />
       </nav>
     </div>
   );
