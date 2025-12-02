@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import CrewSidebar from "../components/sidebars/CrewSidebar";
 import Link from "next/link";
 
@@ -50,37 +51,43 @@ function formatDuration(minutes: number) {
 }
 
 export default function CrewHomePage() {
+  const router = useRouter();
+
   const [profile, setProfile] = useState<CrewProfile | null>(null);
-  const [dashboard, setDashboard] = useState<CrewDashboardResponse | null>(null);
+  const [dashboard, setDashboard] = useState<CrewDashboardResponse | null>(
+    null
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
       try {
-          const [profileRes, dashboardRes] = await Promise.all([
-            fetch(`${API_BASE_URL}/api/me`, {
-              credentials: "include",
-            }),
-            fetch(`${API_BASE_URL}/api/crew/dashboard`, {
-              credentials: "include",
-            }),
-          ]);
+        const [profileRes, dashboardRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/api/me`, {
+            credentials: "include",
+          }),
+          fetch(`${API_BASE_URL}/api/crew/dashboard`, {
+            credentials: "include",
+          }),
+        ]);
 
+        // 🔐 Handle unauthorized for profile
         if (!profileRes.ok) {
-          throw new Error(
-            profileRes.status === 401 || profileRes.status === 403
-              ? "Please log in as crew to view this page."
-              : `Failed to load profile (${profileRes.status})`
-          );
+          if (profileRes.status === 401 || profileRes.status === 403) {
+            router.push("/403");
+            return;
+          }
+          throw new Error(`Failed to load profile (${profileRes.status})`);
         }
 
+        // 🔐 Handle unauthorized for dashboard
         if (!dashboardRes.ok) {
-          throw new Error(
-            dashboardRes.status === 401 || dashboardRes.status === 403
-              ? "Please log in as crew to view this page."
-              : `Failed to load dashboard (${dashboardRes.status})`
-          );
+          if (dashboardRes.status === 401 || dashboardRes.status === 403) {
+            router.push("/403");
+            return;
+          }
+          throw new Error(`Failed to load dashboard (${dashboardRes.status})`);
         }
 
         const profileData: CrewProfile = await profileRes.json();
@@ -97,7 +104,7 @@ export default function CrewHomePage() {
     }
 
     load();
-  }, []);
+  }, [router]);
 
   const upcomingFlights = dashboard?.upcoming_flights ?? [];
   const nextFlight = dashboard?.stats?.next_flight ?? null;
