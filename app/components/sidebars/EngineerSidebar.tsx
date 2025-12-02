@@ -40,7 +40,14 @@ export default function EngineerSidebar() {
           <span>Maintenance Jobs</span>
         </button>
 
-        
+        {/* Maintenance report form */}
+        <button
+          onClick={() => router.push("/engineer/report")}
+          className="flex items-center space-x-3 hover:bg-gray-800 py-2 px-3 rounded-md w-full text-left"
+        >
+          <FaFileAlt />
+          <span>Maintenance Report</span>
+        </button>
         <LogoutButton />
       </nav>
     </div>

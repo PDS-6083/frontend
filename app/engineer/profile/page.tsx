@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import CrewSidebar from "@/app/components/sidebars/CrewSidebar"; 
+import CrewSidebar from "@/app/components/sidebars/EngineerSidebar";
 import ProfileCard from "@/app/components/ProfileCard";
 import { FaUserCircle } from "react-icons/fa";
 
@@ -15,9 +14,7 @@ type User = {
 };
 
 export default function CrewProfile() {
-  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadUser() {
@@ -29,34 +26,26 @@ export default function CrewProfile() {
           }
         );
 
-        // 🔐 Redirect unauthorized users to 403 (same as admin/scheduler/engineer)
         if (!res.ok) {
-          if (res.status === 401 || res.status === 403) {
-            router.push("/403");
-            return;
-          }
-          console.error("Failed to load Crew profile:", res.status);
+          console.error("Failed to load Engineer profile:", res.status);
           return;
         }
 
         const data = await res.json();
-
         setUser({
           name: data.name,
           email: data.email,
           user_type: data.user_type,
           phone: data.phone ?? "N/A",
-          employeeId: data.id ?? "N/A",
+          employeeId: data.id,
         });
       } catch (error) {
-        console.error("Error fetching Crew profile:", error);
-      } finally {
-        setLoading(false);
+        console.error("Error fetching Engineer profile:", error);
       }
     }
 
     loadUser();
-  }, [router]);
+  }, []);
 
   return (
     <div className="flex min-h-screen">
@@ -67,23 +56,19 @@ export default function CrewProfile() {
       <div className="flex-1 bg-gray-100 p-10">
         <h1 className="text-3xl font-semibold mb-6 text-black">My Profile</h1>
 
-        {loading ? (
-          <p className="text-black">Loading profile...</p>
-        ) : (
-          <div className="flex space-x-10">
-            {/* User Icon */}
-            <FaUserCircle className="text-blue-600" size={120} />
+        <div className="flex space-x-10">
+          {/* User Icon */}
+          <FaUserCircle className="text-purple-600" size={120} />
 
-            {/* Shared Profile Card */}
-            <ProfileCard
-              name={user?.name ?? "N/A"}
-              phone={user?.phone ?? "N/A"}
-              role={user?.user_type ?? "N/A"}
-              email={user?.email ?? "N/A"}
-              employeeId={user?.employeeId ?? "N/A"}
-            />
-          </div>
-        )}
+          {/* Shared Profile Card */}
+          <ProfileCard
+            name={user?.name ?? "Loading..."}
+            phone={user?.phone ?? "Loading..."}
+            role={user?.user_type ?? "Loading..."}
+            email={user?.email ?? "Loading..."}
+            employeeId={user?.employeeId ?? "Loading..."}
+          />
+        </div>
       </div>
     </div>
   );
