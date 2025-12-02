@@ -38,7 +38,7 @@ type CrewDashboardResponse = {
   stats: CrewDashboardStats;
 };
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 function formatDuration(minutes: number) {
   if (!minutes || minutes <= 0) return "—";
@@ -58,14 +58,14 @@ export default function CrewHomePage() {
   useEffect(() => {
     async function load() {
       try {
-        const [profileRes, dashboardRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/api/crew/me`, {
-            credentials: "include",
-          }),
-          fetch(`${API_BASE_URL}/api/crew/dashboard`, {
-            credentials: "include",
-          }),
-        ]);
+          const [profileRes, dashboardRes] = await Promise.all([
+            fetch(`${API_BASE_URL}/api/me`, {
+              credentials: "include",
+            }),
+            fetch(`${API_BASE_URL}/api/crew/dashboard`, {
+              credentials: "include",
+            }),
+          ]);
 
         if (!profileRes.ok) {
           throw new Error(

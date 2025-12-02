@@ -4,8 +4,7 @@ import { useEffect, useState, FormEvent } from "react";
 import EngineerSidebar from "@/app/components/sidebars/EngineerSidebar";
 import Link from "next/link";
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 type EngineerReport = {
   id: number;

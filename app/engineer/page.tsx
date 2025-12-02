@@ -34,8 +34,7 @@ type EngineerDashboardResponse = {
   stats: EngineerDashboardStats;
 };
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function EngineerHomePage() {
   const [profile, setProfile] = useState<EngineerProfile | null>(null);
@@ -49,7 +48,7 @@ export default function EngineerHomePage() {
     async function load() {
       try {
         const [profileRes, dashboardRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/api/engineer/me`, {
+          fetch(`${API_BASE_URL}/api/me`, {
             credentials: "include",
           }),
           fetch(`${API_BASE_URL}/api/engineer/dashboard`, {
