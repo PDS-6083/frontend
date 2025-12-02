@@ -3,10 +3,12 @@
 import { useEffect, useState } from "react";
 import EngineerSidebar from "@/app/components/sidebars/EngineerSidebar";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+
 // Backend types
 type DashboardAircraftItem = {
   registration_number: string;
-  status: string; 
+  status: string;
 };
 
 type DashboardAssignedJobItem = {
@@ -34,7 +36,7 @@ type AircraftRow = {
 type MaintenanceRow = {
   jobId: number;
   reg: string;
-  status: string;  
+  status: string;
   role: string;
   startDate: string;
 };
@@ -57,10 +59,15 @@ export default function EngineerDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // NEW: which aircraft's "Details" is open
+  const [selectedAircraft, setSelectedAircraft] = useState<AircraftRow | null>(
+    null
+  );
+
   useEffect(() => {
     async function loadDashboard() {
       try {
-        const res = await fetch("http://localhost:8000/api/engineer/dashboard", {
+        const res = await fetch(`${API_BASE_URL}/api/engineer/dashboard`, {
           method: "GET",
           credentials: "include",
         });
@@ -88,7 +95,7 @@ export default function EngineerDashboard() {
           (j) => ({
             jobId: j.job_id,
             reg: j.aircraft_registration,
-            status: "In Progress", 
+            status: "In Progress", // backend doesn't send status here
             role: j.role,
             startDate: new Date(j.checkin_date).toLocaleDateString(),
           })
@@ -112,6 +119,11 @@ export default function EngineerDashboard() {
   const activeJobs = jobs.length;
   const monthlyCompleted = stats?.monthly_completed_jobs ?? 0;
 
+  // Jobs filtered by selected aircraft
+  const selectedAircraftJobs = selectedAircraft
+    ? jobs.filter((j) => j.reg === selectedAircraft.reg)
+    : [];
+
   return (
     <div className="flex min-h-screen">
       <EngineerSidebar />
@@ -124,7 +136,9 @@ export default function EngineerDashboard() {
           Overview of aircraft status and your assigned maintenance jobs.
         </p>
 
-        {loading && <p className="text-gray-600 text-sm">Loading dashboard...</p>}
+        {loading && (
+          <p className="text-gray-600 text-sm">Loading dashboard...</p>
+        )}
 
         {error && !loading && (
           <div className="mb-4 rounded-md bg-red-100 px-4 py-2 text-sm text-red-800">
@@ -160,8 +174,17 @@ export default function EngineerDashboard() {
                             </span>
                           </td>
                           <td className="py-2 text-right">
-                            <button className="border border-black px-3 py-1 rounded-full text-xs text-black hover:bg-black hover:text-white transition">
-                              Details
+                            <button
+                              className="border border-black px-3 py-1 rounded-full text-xs text-black hover:bg-black hover:text-white transition"
+                              onClick={() =>
+                                setSelectedAircraft(
+                                  selectedAircraft?.reg === ac.reg ? null : ac
+                                )
+                              }
+                            >
+                              {selectedAircraft?.reg === ac.reg
+                                ? "Hide"
+                                : "Details"}
                             </button>
                           </td>
                         </tr>
@@ -179,6 +202,62 @@ export default function EngineerDashboard() {
                     </tbody>
                   </table>
                 </div>
+
+                {/* NEW: Selected aircraft details panel */}
+                {selectedAircraft && (
+                  <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                    <h3 className="text-sm font-semibold text-black mb-2">
+                      Aircraft Details – {selectedAircraft.reg}
+                    </h3>
+                    <p className="text-xs text-gray-600 mb-3">
+                      Status:{" "}
+                      <span className="font-medium">
+                        {selectedAircraft.status}
+                      </span>
+                    </p>
+
+                    <h4 className="text-xs font-semibold text-gray-700 mb-1">
+                      Maintenance Jobs for this aircraft
+                    </h4>
+
+                    {selectedAircraftJobs.length === 0 ? (
+                      <p className="text-xs text-gray-500">
+                        No jobs found for this aircraft.
+                      </p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full text-left text-xs text-gray-800">
+                          <thead>
+                            <tr className="border-b text-[11px] uppercase text-gray-500">
+                              <th className="py-1 pr-3">Job ID</th>
+                              <th className="py-1 pr-3">Role</th>
+                              <th className="py-1 pr-3">Status</th>
+                              <th className="py-1 pr-3">Start Date</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {selectedAircraftJobs.map((job) => (
+                              <tr key={job.jobId} className="border-b">
+                                <td className="py-1 pr-3 text-black">
+                                  #{job.jobId}
+                                </td>
+                                <td className="py-1 pr-3 text-black">
+                                  {job.role}
+                                </td>
+                                <td className="py-1 pr-3 text-black">
+                                  {job.status}
+                                </td>
+                                <td className="py-1 pr-3 text-black">
+                                  {job.startDate}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Jobs / maintenance table */}
@@ -200,7 +279,9 @@ export default function EngineerDashboard() {
                       {jobs.map((job) => (
                         <tr key={job.jobId} className="hover:bg-gray-50">
                           <td className="py-2 pr-4 text-black">{job.reg}</td>
-                          <td className="py-2 pr-4 text-black">{job.status}</td>
+                          <td className="py-2 pr-4 text-black">
+                            {job.status}
+                          </td>
                           <td className="py-2 pr-4 text-black">{job.role}</td>
                           <td className="py-2 pr-4 text-black">
                             {job.startDate}
@@ -223,7 +304,7 @@ export default function EngineerDashboard() {
               </div>
             </div>
 
-            {/* RIGHT – summary stats (all dynamic now) */}
+            {/* RIGHT – summary stats */}
             <div className="space-y-4">
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
                 <h3 className="text-sm font-semibold text-gray-700 mb-2">
