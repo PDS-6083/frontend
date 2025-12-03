@@ -40,7 +40,6 @@ type MaintenanceJobDetail = {
   status: string;
   type: MaintenanceType;
   remarks?: string | null;
-
   engineers: EngineerInfo[];
   parts: JobPartInfo[];
 };
@@ -54,6 +53,13 @@ type NewJobForm = {
 type AssignEngineerForm = {
   email_id: string;
   role: string;
+};
+
+type NewPartForm = {
+  part_number: string;
+  part_manufacturer: string;
+  model: string;
+  manufacturing_date: string; // YYYY-MM-DD
 };
 
 // From engineer dashboard backend
@@ -101,6 +107,21 @@ export default function EngineerMaintenancePage() {
   const [aircrafts, setAircrafts] = useState<EngineerAircraft[]>([]);
   const [aircraftsLoading, setAircraftsLoading] = useState(true);
   const [aircraftsError, setAircraftsError] = useState<string | null>(null);
+
+  // NEW: Close job state
+  const [closeRemarks, setCloseRemarks] = useState("");
+  const [closingJob, setClosingJob] = useState(false);
+  const [closeJobError, setCloseJobError] = useState<string | null>(null);
+
+  // NEW: Add part state
+  const [newPart, setNewPart] = useState<NewPartForm>({
+    part_number: "",
+    part_manufacturer: "",
+    model: "",
+    manufacturing_date: "",
+  });
+  const [addingPart, setAddingPart] = useState(false);
+  const [addPartError, setAddPartError] = useState<string | null>(null);
 
   // ------------------------------
   // Load jobs
@@ -333,6 +354,119 @@ export default function EngineerMaintenancePage() {
   }
 
   // ------------------------------
+  // Close job
+  // ------------------------------
+  async function handleCloseJob() {
+    if (!selectedJobId || !selectedJob) return;
+
+    setClosingJob(true);
+    setCloseJobError(null);
+
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/engineer/jobs/${selectedJobId}/close`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            remarks: closeRemarks || null,
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          router.push("/403");
+          return;
+        }
+        const errBody = await res.json().catch(() => null);
+        const detail =
+          errBody?.detail || `Failed to close job (${res.status})`;
+        setCloseJobError(detail);
+        return;
+      }
+
+      const updated: MaintenanceJobDetail = await res.json();
+      setSelectedJob(updated);
+      setCloseRemarks("");
+      await loadJobs();
+    } catch (err) {
+      console.error(err);
+      setCloseJobError("Unexpected error while closing job.");
+    } finally {
+      setClosingJob(false);
+    }
+  }
+
+  const canCloseJob =
+    selectedJob &&
+    selectedJob.status !== "COMPLETED" &&
+    selectedJob.status !== "CANCELLED";
+
+  // ------------------------------
+  // Add part to aircraft
+  // ------------------------------
+  async function handleAddPart(e: FormEvent) {
+    e.preventDefault();
+    if (!selectedJob) return;
+
+    setAddingPart(true);
+    setAddPartError(null);
+
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/engineer/aircrafts/${selectedJob.aircraft_registration}/parts`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(newPart),
+        }
+      );
+
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          router.push("/403");
+          return;
+        }
+        const errBody = await res.json().catch(() => null);
+        const detail =
+          errBody?.detail || `Failed to add part (${res.status})`;
+        setAddPartError(detail);
+        return;
+      }
+
+      const createdPart: JobPartInfo = await res.json();
+
+      setSelectedJob((prev) =>
+        prev
+          ? {
+              ...prev,
+              parts: [...prev.parts, createdPart],
+            }
+          : prev
+      );
+
+      setNewPart({
+        part_number: "",
+        part_manufacturer: "",
+        model: "",
+        manufacturing_date: "",
+      });
+    } catch (err) {
+      console.error(err);
+      setAddPartError("Unexpected error while adding part.");
+    } finally {
+      setAddingPart(false);
+    }
+  }
+
+  // ------------------------------
   // Render UI
   // ------------------------------
   return (
@@ -430,6 +564,41 @@ export default function EngineerMaintenancePage() {
                   {selectedJob.remarks || "—"}
                 </div>
 
+                {/* Close Job */}
+                <div className="mt-4 space-y-2">
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleCloseJob}
+                      disabled={!canCloseJob || closingJob}
+                      className={`px-3 py-1.5 rounded text-sm text-white ${
+                        canCloseJob && !closingJob
+                          ? "bg-red-600 hover:bg-red-700"
+                          : "bg-gray-400 cursor-not-allowed"
+                      }`}
+                    >
+                      {closingJob ? "Closing…" : "Close Job"}
+                    </button>
+                    {closeJobError && (
+                      <span className="text-xs text-red-600">
+                        {closeJobError}
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-xs mb-1">
+                      Closing remarks (optional)
+                    </label>
+                    <textarea
+                      className="w-full border rounded px-2 py-1 text-sm"
+                      rows={2}
+                      value={closeRemarks}
+                      onChange={(e) => setCloseRemarks(e.target.value)}
+                      placeholder={selectedJob.remarks || "Add final remarks…"}
+                    />
+                  </div>
+                </div>
+
                 {/* Engineers */}
                 <div className="mt-4">
                   <strong>Engineers Assigned:</strong>
@@ -490,6 +659,143 @@ export default function EngineerMaintenancePage() {
                     {assigning ? "Assigning…" : "Assign Engineer"}
                   </button>
                 </form>
+
+                {/* Parts List */}
+                <div className="mt-6">
+                  <h3 className="text-sm font-semibold mb-1">
+                    Aircraft Parts
+                  </h3>
+
+                  <table className="w-full text-xs border rounded overflow-hidden">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="border px-2 py-1 text-left">
+                          Part Number
+                        </th>
+                        <th className="border px-2 py-1 text-left">
+                          Manufacturer
+                        </th>
+                        <th className="border px-2 py-1 text-left">
+                          Model
+                        </th>
+                        <th className="border px-2 py-1 text-left">
+                          Mfg Date
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedJob.parts.length > 0 ? (
+                        selectedJob.parts.map((p) => (
+                          <tr key={p.part_number}>
+                            <td className="border px-2 py-1">
+                              {p.part_number}
+                            </td>
+                            <td className="border px-2 py-1">
+                              {p.part_manufacturer}
+                            </td>
+                            <td className="border px-2 py-1">{p.model}</td>
+                            <td className="border px-2 py-1">
+                              {p.manufacturing_date}
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td
+                            className="border px-2 py-2 text-center text-gray-500"
+                            colSpan={4}
+                          >
+                            No parts recorded for this aircraft.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Add Part Form */}
+                <form
+                  onSubmit={handleAddPart}
+                  className="mt-3 grid grid-cols-1 md:grid-cols-5 gap-3 items-end text-xs md:text-sm"
+                >
+                  <div>
+                    <label className="block text-xs mb-1">
+                      Part number
+                    </label>
+                    <input
+                      required
+                      className="w-full border rounded px-2 py-1"
+                      value={newPart.part_number}
+                      onChange={(e) =>
+                        setNewPart((prev) => ({
+                          ...prev,
+                          part_number: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs mb-1">
+                      Manufacturer
+                    </label>
+                    <input
+                      required
+                      className="w-full border rounded px-2 py-1"
+                      value={newPart.part_manufacturer}
+                      onChange={(e) =>
+                        setNewPart((prev) => ({
+                          ...prev,
+                          part_manufacturer: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs mb-1">Model</label>
+                    <input
+                      required
+                      className="w-full border rounded px-2 py-1"
+                      value={newPart.model}
+                      onChange={(e) =>
+                        setNewPart((prev) => ({
+                          ...prev,
+                          model: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs mb-1">
+                      Manufacturing date
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      className="w-full border rounded px-2 py-1"
+                      value={newPart.manufacturing_date}
+                      onChange={(e) =>
+                        setNewPart((prev) => ({
+                          ...prev,
+                          manufacturing_date: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <div>
+                    <button
+                      type="submit"
+                      disabled={addingPart}
+                      className="w-full bg-green-600 text-white px-3 py-2 rounded text-sm"
+                    >
+                      {addingPart ? "Adding…" : "Add Part"}
+                    </button>
+                  </div>
+                  {addPartError && (
+                    <p className="md:col-span-5 text-xs text-red-600">
+                      {addPartError}
+                    </p>
+                  )}
+                </form>
               </>
             )}
           </section>
@@ -537,7 +843,10 @@ export default function EngineerMaintenancePage() {
                     : "Select an aircraft"}
                 </option>
                 {aircrafts.map((ac) => (
-                  <option key={ac.registration_number} value={ac.registration_number}>
+                  <option
+                    key={ac.registration_number}
+                    value={ac.registration_number}
+                  >
                     {ac.registration_number} ({ac.status})
                   </option>
                 ))}
