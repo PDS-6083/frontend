@@ -45,13 +45,22 @@ function formatDuration(minutes: number) {
   return `${h}h ${m}m`;
 }
 
+// Helper to build a unique flight id (number + date)
+function getFlightId(f: { flight_number: string; date: string }) {
+  return `${f.flight_number}-${f.date}`;
+}
+
 export default function CrewDashboard() {
   const [flights, setFlights] = useState<CrewFlightSummary[]>([]);
-  const [selectedFlight, setSelectedFlight] =
-    useState<CrewFlightSummary | null>(null);
+  const [selectedFlightId, setSelectedFlightId] = useState<string | null>(null);
   const [stats, setStats] = useState<CrewDashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const selectedFlight =
+    selectedFlightId != null
+      ? flights.find((f) => getFlightId(f) === selectedFlightId) || null
+      : null;
 
   useEffect(() => {
     async function loadDashboard() {
@@ -73,9 +82,14 @@ export default function CrewDashboard() {
         const data: CrewDashboardResponse = await res.json();
         const list = data.upcoming_flights || [];
         setFlights(list);
-        setStats(data.stats);
-        // default detail = first flight if exists
-        setSelectedFlight(list[0] ?? null);
+        setStats(data.stats || null);
+
+        // default selection: first flight (if any)
+        if (list.length > 0) {
+          setSelectedFlightId(getFlightId(list[0]));
+        } else {
+          setSelectedFlightId(null);
+        }
       } catch (e) {
         console.error(e);
         setError("Something went wrong while loading your flights.");
@@ -92,9 +106,7 @@ export default function CrewDashboard() {
       <CrewSidebar />
 
       <div className="flex-1 bg-gray-100 p-10">
-        <h1 className="text-3xl font-semibold mb-4 text-black">
-          My Flights
-        </h1>
+        <h1 className="text-3xl font-semibold mb-4 text-black">My Flights</h1>
         <p className="text-sm text-gray-600 mb-6">
           Upcoming flights assigned to you.
         </p>
@@ -173,9 +185,16 @@ export default function CrewDashboard() {
                 </thead>
                 <tbody>
                   {flights.map((f) => {
-                    const id = `${f.flight_number}-${f.date}`;
+                    const id = getFlightId(f);
+                    const isSelected = id === selectedFlightId;
+
                     return (
-                      <tr key={id} className="border-b last:border-none">
+                      <tr
+                        key={id}
+                        className={`border-b last:border-none ${
+                          isSelected ? "bg-gray-50" : ""
+                        }`}
+                      >
                         <td className="py-2 pr-4 text-black">
                           {f.flight_number}
                         </td>
@@ -198,10 +217,10 @@ export default function CrewDashboard() {
                         <td className="py-2 pr-4 text-right">
                           <button
                             type="button"
-                            onClick={() => setSelectedFlight(f)}
+                            onClick={() => setSelectedFlightId(id)}
                             className="border border-black px-3 py-1 rounded-full text-xs text-black hover:bg-black hover:text-white transition"
                           >
-                            Details
+                            {isSelected ? "Selected" : "Details"}
                           </button>
                         </td>
                       </tr>
