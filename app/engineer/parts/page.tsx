@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, FormEvent } from "react";
+import { useEffect, useState, Suspense } from "react";
+import type { FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import EngineerSidebar from "@/app/components/sidebars/EngineerSidebar";
 
@@ -33,7 +34,11 @@ type AircraftDetailResponse = {
   parts: JobPartInfo[];
 };
 
-export default function EngineerPartsPage() {
+/**
+ * Inner client component that actually uses useSearchParams.
+ * This is what Next.js wants to be wrapped in <Suspense>.
+ */
+function EngineerPartsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -72,7 +77,7 @@ export default function EngineerPartsPage() {
         credentials: "include",
       });
 
-      if (!res.ok) {
+        if (!res.ok) {
         if (res.status === 401 || res.status === 403) {
           router.push("/403");
           return;
@@ -408,5 +413,16 @@ export default function EngineerPartsPage() {
         </section>
       </main>
     </div>
+  );
+}
+
+/**
+ * Page export wrapped in Suspense – this is what fixes the build error.
+ */
+export default function EngineerPartsPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center">Loading parts…</div>}>
+      <EngineerPartsContent />
+    </Suspense>
   );
 }
