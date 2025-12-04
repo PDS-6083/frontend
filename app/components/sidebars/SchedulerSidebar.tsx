@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import useUser from "@/app/hooks/useUser";
 import { FaUser, FaPlaneDeparture, FaUsersCog, FaTachometerAlt } from "react-icons/fa";
+import LogoutButton from "./LogoutButton";
 
 export default function SchedulerSidebar() {
   const router = useRouter();
@@ -46,6 +47,7 @@ export default function SchedulerSidebar() {
           <FaUsersCog />
           <span>Assign Crew</span>
         </button>
+        <LogoutButton />
       </nav>
 
     </div>

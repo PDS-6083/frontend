@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import useUser from "@/app/hooks/useUser";
 import { FaUser, FaRoute, FaPlane, FaTachometerAlt } from "react-icons/fa";
+import LogoutButton from "./LogoutButton";
 
 export default function AdminSidebar() {
   const router = useRouter();
@@ -48,6 +49,7 @@ export default function AdminSidebar() {
           <FaPlane />
           <span>Add Aircraft</span>
         </button>
+        <LogoutButton />
       </nav>
     </div>
   );
