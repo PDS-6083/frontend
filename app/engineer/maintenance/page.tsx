@@ -55,14 +55,6 @@ type AssignEngineerForm = {
   role: string;
 };
 
-// (kept in case you reuse type elsewhere)
-type NewPartForm = {
-  part_number: string;
-  part_manufacturer: string;
-  model: string;
-  manufacturing_date: string; // YYYY-MM-DD
-};
-
 // From engineer dashboard backend
 type EngineerAircraft = {
   registration_number: string;
@@ -71,6 +63,12 @@ type EngineerAircraft = {
 
 type EngineerDashboardResponse = {
   aircrafts: EngineerAircraft[];
+};
+
+// From /api/engineer/engineers (backend: EngineerBasicInfo)
+type EngineerBasicInfo = {
+  email_id: string;
+  name: string;
 };
 
 export default function EngineerMaintenancePage() {
@@ -113,6 +111,13 @@ export default function EngineerMaintenancePage() {
   const [closeRemarks, setCloseRemarks] = useState("");
   const [closingJob, setClosingJob] = useState(false);
   const [closeJobError, setCloseJobError] = useState<string | null>(null);
+
+  // All engineers from /api/engineer/engineers
+  const [allEngineers, setAllEngineers] = useState<EngineerBasicInfo[]>([]);
+  const [allEngineersLoading, setAllEngineersLoading] = useState(true);
+  const [allEngineersError, setAllEngineersError] = useState<string | null>(
+    null
+  );
 
   // ------------------------------
   // Load jobs
@@ -180,9 +185,44 @@ export default function EngineerMaintenancePage() {
     }
   }
 
+  // ------------------------------
+  // Load all engineers for dropdown
+  // ------------------------------
+  async function loadAllEngineers() {
+    setAllEngineersLoading(true);
+    setAllEngineersError(null);
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/engineer/engineers`, {
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          router.push("/403");
+          return;
+        }
+        setAllEngineersError(`Failed to load engineers (${res.status})`);
+        return;
+      }
+
+      const data: EngineerBasicInfo[] = await res.json();
+      setAllEngineers(data || []);
+    } catch (err) {
+      console.error(err);
+      setAllEngineersError("Unexpected error while loading engineers.");
+    } finally {
+      setAllEngineersLoading(false);
+    }
+  }
+
+  // ------------------------------
+  // Initial load
+  // ------------------------------
   useEffect(() => {
     loadJobs();
     loadAircrafts();
+    loadAllEngineers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -290,11 +330,16 @@ export default function EngineerMaintenancePage() {
   }
 
   // ------------------------------
-  // Assign engineer (with email dropdown)
+  // Assign engineer
   // ------------------------------
   async function handleAssignEngineer(e: FormEvent) {
     e.preventDefault();
     if (!selectedJobId) return;
+
+    if (!assignForm.email_id.trim()) {
+      setAssignError("Please select an engineer.");
+      return;
+    }
 
     setAssigning(true);
     setAssignError(null);
@@ -393,9 +438,7 @@ export default function EngineerMaintenancePage() {
   }
 
   // 🔑 NORMALISE STATUS HERE
-  const normalizedStatus = (
-    selectedJob?.status ?? ""
-  )
+  const normalizedStatus = (selectedJob?.status ?? "")
     .toString()
     .trim()
     .toUpperCase();
@@ -405,9 +448,8 @@ export default function EngineerMaintenancePage() {
 
   const canCloseJob = !!selectedJob && !isJobClosed;
 
-  // Collect engineer emails for dropdown (from the currently selected job)
-  const engineerEmailOptions =
-    selectedJob?.engineers?.map((e) => e.email_id) ?? [];
+  // All engineer emails for dropdown
+  const engineerEmailOptions = allEngineers.map((e) => e.email_id);
 
   // ------------------------------
   // Render UI
@@ -505,8 +547,7 @@ export default function EngineerMaintenancePage() {
 
                 {/* Remarks */}
                 <div className="mt-4 text-sm">
-                  <strong>Remarks:</strong>{" "}
-                  {selectedJob.remarks || "—"}
+                  <strong>Remarks:</strong> {selectedJob.remarks || "—"}
                 </div>
 
                 {/* Close Job */}
@@ -544,7 +585,7 @@ export default function EngineerMaintenancePage() {
                   </div>
                 </div>
 
-                {/* Engineers */}
+                {/* Engineers assigned to this job (read-only) */}
                 <div className="mt-4">
                   <strong>Engineers Assigned:</strong>
                   {selectedJob.engineers.length === 0 ? (
@@ -562,7 +603,7 @@ export default function EngineerMaintenancePage() {
                   )}
                 </div>
 
-                {/* Assign Engineer – greyed out & disabled when job is closed */}
+                {/* Assign Engineer – disabled when job is closed */}
                 <form
                   onSubmit={handleAssignEngineer}
                   className={`mt-4 ${
@@ -572,6 +613,12 @@ export default function EngineerMaintenancePage() {
                   {assignError && !isJobClosed && (
                     <p className="text-red-600 text-sm mb-2">
                       {assignError}
+                    </p>
+                  )}
+
+                  {allEngineersError && !isJobClosed && (
+                    <p className="text-yellow-700 text-xs mb-2">
+                      {allEngineersError}
                     </p>
                   )}
 
@@ -590,18 +637,22 @@ export default function EngineerMaintenancePage() {
                           }))
                         }
                         disabled={
-                          isJobClosed || engineerEmailOptions.length === 0
+                          isJobClosed ||
+                          allEngineersLoading ||
+                          engineerEmailOptions.length === 0
                         }
                         className="border px-2 py-1 rounded w-full text-sm"
                       >
                         <option value="">
-                          {engineerEmailOptions.length === 0
+                          {allEngineersLoading
+                            ? "Loading engineers…"
+                            : engineerEmailOptions.length === 0
                             ? "No engineers available"
                             : "Select an engineer"}
                         </option>
-                        {engineerEmailOptions.map((email) => (
-                          <option key={email} value={email}>
-                            {email}
+                        {allEngineers.map((eng) => (
+                          <option key={eng.email_id} value={eng.email_id}>
+                            {eng.name} — {eng.email_id}
                           </option>
                         ))}
                       </select>
@@ -609,24 +660,30 @@ export default function EngineerMaintenancePage() {
                         {isJobClosed
                           ? "Job is closed. Assigning new engineers is disabled."
                           : engineerEmailOptions.length === 0
-                          ? "No engineers found for this job."
+                          ? "No engineers found in the system."
                           : "Choose an engineer to assign to this job."}
                       </p>
                     </div>
 
-                    <input
-                      type="text"
-                      placeholder="Role"
-                      value={assignForm.role}
-                      onChange={(e) =>
-                        setAssignForm((prev) => ({
-                          ...prev,
-                          role: e.target.value,
-                        }))
-                      }
-                      className="border px-2 py-1 rounded text-sm"
-                      disabled={isJobClosed}
-                    />
+                    {/* Role input */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Role
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Role"
+                        value={assignForm.role}
+                        onChange={(e) =>
+                          setAssignForm((prev) => ({
+                            ...prev,
+                            role: e.target.value,
+                          }))
+                        }
+                        className="border px-2 py-1 rounded text-sm w-full"
+                        disabled={isJobClosed}
+                      />
+                    </div>
                   </div>
 
                   <button
