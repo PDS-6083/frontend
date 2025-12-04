@@ -290,7 +290,7 @@ export default function EngineerMaintenancePage() {
   }
 
   // ------------------------------
-  // Assign engineer (with email dropdown via datalist)
+  // Assign engineer (with email dropdown)
   // ------------------------------
   async function handleAssignEngineer(e: FormEvent) {
     e.preventDefault();
@@ -576,11 +576,12 @@ export default function EngineerMaintenancePage() {
                   )}
 
                   <div className="grid grid-cols-2 gap-3">
+                    {/* Engineer email dropdown */}
                     <div>
-                      <input
-                        list="engineer-email-options"
-                        type="email"
-                        placeholder="Engineer email"
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Engineer Email
+                      </label>
+                      <select
                         value={assignForm.email_id}
                         onChange={(e) =>
                           setAssignForm((prev) => ({
@@ -588,18 +589,28 @@ export default function EngineerMaintenancePage() {
                             email_id: e.target.value,
                           }))
                         }
+                        disabled={
+                          isJobClosed || engineerEmailOptions.length === 0
+                        }
                         className="border px-2 py-1 rounded w-full text-sm"
-                        disabled={isJobClosed}
-                      />
-                      <datalist id="engineer-email-options">
+                      >
+                        <option value="">
+                          {engineerEmailOptions.length === 0
+                            ? "No engineers available"
+                            : "Select an engineer"}
+                        </option>
                         {engineerEmailOptions.map((email) => (
-                          <option key={email} value={email} />
+                          <option key={email} value={email}>
+                            {email}
+                          </option>
                         ))}
-                      </datalist>
+                      </select>
                       <p className="text-[11px] text-black/60 mt-1">
                         {isJobClosed
                           ? "Job is closed. Assigning new engineers is disabled."
-                          : "Start typing to see known engineer emails."}
+                          : engineerEmailOptions.length === 0
+                          ? "No engineers found for this job."
+                          : "Choose an engineer to assign to this job."}
                       </p>
                     </div>
 
