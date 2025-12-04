@@ -47,6 +47,7 @@ export default function SchedulerSidebar() {
           <FaUsersCog />
           <span>Assign Crew</span>
         </button>
+        <LogoutButton />
       </nav>
 
     </div>

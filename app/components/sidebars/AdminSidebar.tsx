@@ -49,6 +49,7 @@ export default function AdminSidebar() {
           <FaPlane />
           <span>Add Aircraft</span>
         </button>
+        <LogoutButton />
       </nav>
     </div>
   );
