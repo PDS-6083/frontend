@@ -28,6 +28,11 @@ type EngineerDashboardResponse = {
   stats: EngineerDashboardStats;
 };
 
+// Minimal detail type just to read status from /api/engineer/jobs/{id}
+type MaintenanceJobDetail = {
+  status: string;
+};
+
 type AircraftRow = {
   reg: string;
   status: string;
@@ -59,7 +64,7 @@ export default function EngineerDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // NEW: which aircraft's "Details" is open
+  // which aircraft's "Details" is open
   const [selectedAircraft, setSelectedAircraft] = useState<AircraftRow | null>(
     null
   );
@@ -91,19 +96,49 @@ export default function EngineerDashboard() {
           })
         );
 
-        const mappedJobs: MaintenanceRow[] = (data.assigned_jobs || []).map(
-          (j) => ({
-            jobId: j.job_id,
-            reg: j.aircraft_registration,
-            status: "In Progress", // backend doesn't send status here
-            role: j.role,
-            startDate: new Date(j.checkin_date).toLocaleDateString(),
+        setAircrafts(mappedAircrafts);
+        setStats(data.stats);
+
+        const assigned = data.assigned_jobs || [];
+
+        // For each assigned job, fetch its real status from /api/engineer/jobs/{id}
+        const detailedJobs: MaintenanceRow[] = await Promise.all(
+          assigned.map(async (j) => {
+            const startDate = new Date(j.checkin_date).toLocaleDateString();
+            let status = "Unknown";
+
+            try {
+              const jobRes = await fetch(
+                `${API_BASE_URL}/api/engineer/jobs/${j.job_id}`,
+                { credentials: "include" }
+              );
+
+              if (jobRes.ok) {
+                const detail: MaintenanceJobDetail = await jobRes.json();
+                status = detail.status || "Unknown";
+              } else {
+                // fallback if detail fetch fails
+                status = "In Progress";
+              }
+            } catch (err) {
+              console.error(
+                `Failed to load job detail for job ${j.job_id}`,
+                err
+              );
+              status = "In Progress";
+            }
+
+            return {
+              jobId: j.job_id,
+              reg: j.aircraft_registration,
+              status,
+              role: j.role,
+              startDate,
+            };
           })
         );
 
-        setAircrafts(mappedAircrafts);
-        setJobs(mappedJobs);
-        setStats(data.stats);
+        setJobs(detailedJobs);
       } catch (e) {
         console.error(e);
         setError("Something went wrong while loading engineer dashboard.");
@@ -116,7 +151,13 @@ export default function EngineerDashboard() {
   }, []);
 
   const totalAircrafts = aircrafts.length;
-  const activeJobs = jobs.length;
+
+  // Active jobs = those NOT completed/cancelled
+  const activeJobs = jobs.filter((job) => {
+    const s = (job.status || "").toString().trim().toUpperCase();
+    return s !== "COMPLETED" && s !== "CANCELLED";
+  }).length;
+
   const monthlyCompleted = stats?.monthly_completed_jobs ?? 0;
 
   // Jobs filtered by selected aircraft
@@ -203,7 +244,7 @@ export default function EngineerDashboard() {
                   </table>
                 </div>
 
-                {/* NEW: Selected aircraft details panel */}
+                {/* Selected aircraft details panel */}
                 {selectedAircraft && (
                   <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
                     <h3 className="text-sm font-semibold text-black mb-2">
@@ -322,7 +363,8 @@ export default function EngineerDashboard() {
                 </h3>
                 <p className="text-3xl font-bold text-black">{activeJobs}</p>
                 <p className="mt-2 text-gray-600 text-sm">
-                  Maintenance tasks currently assigned to you.
+                  Maintenance tasks currently assigned to you and not yet
+                  completed.
                 </p>
               </div>
 
