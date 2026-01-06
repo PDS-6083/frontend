@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 
 import AdminSidebar from "@/app/components/sidebars/AdminSidebar";
 import SchedulerSidebar from "@/app/components/sidebars/SchedulerSidebar";
+import CrewSidebar from "@/app/components/sidebars/CrewSidebar";
+import EngineerSidebar from "@/app/components/sidebars/EngineerSidebar";
 // (Optional) import engineer & crew sidebars if needed
 
 import ProfileCard from "@/app/components/ProfileCard";
@@ -55,8 +57,8 @@ export default function ProfilePage() {
   let SidebarComponent = null;
   if (user.user_type === "admin") SidebarComponent = <AdminSidebar />;
   if (user.user_type === "scheduler") SidebarComponent = <SchedulerSidebar />;
-  // if (user.user_type === "engineer") SidebarComponent = <EngineerSidebar />;
-  // if (user.user_type === "crew") SidebarComponent = <CrewSidebar />;
+  if (user.user_type === "engineer") SidebarComponent = <EngineerSidebar />;
+  if (user.user_type === "crew") SidebarComponent = <CrewSidebar />;
 
   return (
     <div className="flex min-h-screen">

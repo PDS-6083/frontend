@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 
 import AdminDashboard from "../components/dashboards/AdminDashboard";
 import SchedulerDashboard from "../components/dashboards/SchedulerDashboard";
+import CrewDashboard from "../components/dashboards/CrewDashboard";
+import EngineerDashboard from "../components/dashboards/EngineerDashboard";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -45,6 +47,8 @@ export default function DashboardPage() {
     <>
       {role === "admin" && <AdminDashboard />}
       {role === "scheduler" && <SchedulerDashboard />}
+      {role === "crew" && <CrewDashboard />}
+      {role === "engineer" && <EngineerDashboard />}
     </>
   );
 }
